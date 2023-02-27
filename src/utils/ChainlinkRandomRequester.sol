@@ -5,9 +5,9 @@ import "chainlink/interfaces/VRFCoordinatorV2Interface.sol";
 import "chainlink/VRFConsumerBaseV2.sol";
 import "chainlink/ConfirmedOwner.sol";
 
-import "./RandomRequestResponse.sol";
+import "./RandomRequester.sol";
 
-contract ChainlinkAdapter is VRFConsumerBaseV2, ConfirmedOwner, RandomRequestResponse {
+contract ChainlinkRandomRequester is VRFConsumerBaseV2, ConfirmedOwner, RandomRequester {
 
     VRFCoordinatorV2Interface COORDINATOR;
 
@@ -47,6 +47,12 @@ contract ChainlinkAdapter is VRFConsumerBaseV2, ConfirmedOwner, RandomRequestRes
         COORDINATOR = VRFCoordinatorV2Interface(
             _coordinator
         );
+
+        (uint16 minimumRequestConfirmations,
+        uint32 maxGasLimit,
+        uint32 stalenessSeconds,
+        uint32 gasAfterPaymentCalculation) = COORDINATOR.getConfig();
+
         subscriptionId = _subscriptionId;
         keyHash = _keyHash;
     }
