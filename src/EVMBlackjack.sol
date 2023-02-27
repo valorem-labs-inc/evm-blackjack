@@ -14,7 +14,7 @@ contract EVMBlackjack {
     uint8 internal constant MINIMUM_BET_SIZE = 10;
     uint8 internal constant MAXIMUM_BET_SIZE = 100;
 
-    constructor (Chip _chip) {
+    constructor(Chip _chip) {
         chip = _chip;
     }
 
@@ -77,9 +77,7 @@ contract EVMBlackjack {
     //  Ready for Deal
     //////////////////////////////////////////////////////////////*/
 
-    function deal() public {
-        
-    }
+    function deal() public {}
 
     /*//////////////////////////////////////////////////////////////
     //  Ready for Player Action
@@ -96,6 +94,4 @@ contract EVMBlackjack {
     /*//////////////////////////////////////////////////////////////
     //  Ready for Payouts
     //////////////////////////////////////////////////////////////*/
-
-
 }

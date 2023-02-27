@@ -1,5 +1,5 @@
 [profile.default]
-remappings = ['forge-std/=lib/forge-std/src/']
+remappings = ['forge-std/=lib/forge-std/src/', 'solmate/=lib/solmate/src/']
 
 [profile.ci.fuzz]
 runs = 10_000

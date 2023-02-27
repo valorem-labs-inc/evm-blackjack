@@ -81,7 +81,11 @@ contract EVMBlackjackTest is Test {
         vm.stopPrank();
 
         assertEq(chip.balanceOf(player), PLAYER_STARTING_BALANCE - BETSIZE1, "Player CHIP balance");
-        assertEq(chip.balanceOf(address(game)), HOUSE_STARTING_BALANCE - PLAYER_STARTING_BALANCE + BETSIZE1, "House CHIP balance");
+        assertEq(
+            chip.balanceOf(address(game)),
+            HOUSE_STARTING_BALANCE - PLAYER_STARTING_BALANCE + BETSIZE1,
+            "House CHIP balance"
+        );
         assertEq(game.state(player), EVMBlackjack.GameState.READY_FOR_DEAL, "Player table state");
         assertEq(game.bet(player), BETSIZE1, "Player bet size");
     }
@@ -121,6 +125,6 @@ contract EVMBlackjackTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function assertEq(EVMBlackjack.GameState a, EVMBlackjack.GameState b, string memory reason) internal {
-        assertEq(uint(a), uint(b), reason);
+        assertEq(uint256(a), uint256(b), reason);
     }
 }
