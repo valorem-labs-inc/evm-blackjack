@@ -1,14 +1,14 @@
-// SPDX-License-Identifier: Unlicense
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import "./utils/RandomAdapter.sol";
+import "./utils/ChainlinkAdapter.sol";
 
 contract Contract {
-    RandomAdapter private randomAdapter;
+    ChainlinkAdapter private randomAdapter;
 
     uint64 SUBSCRIPTION_ID = 145;
 
     constructor() {
-        randomAdapter = new RandomAdapter(SUBSCRIPTION_ID);
+        randomAdapter = new ChainlinkAdapter(SUBSCRIPTION_ID);
     }
 }

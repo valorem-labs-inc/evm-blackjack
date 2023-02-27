@@ -1,28 +1,20 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT 
 pragma solidity ^0.8.13;
 
 import "chainlink/interfaces/VRFCoordinatorV2Interface.sol";
 import "chainlink/VRFConsumerBaseV2.sol";
 import "chainlink/ConfirmedOwner.sol";
 
-contract RandomAdapter is VRFConsumerBaseV2, ConfirmedOwner {
-    event RequestSent(uint256 requestId, uint32 numWords);
-    event RequestFulfilled(uint256 requestId, uint256[] randomWords);
+import "./RandomRequestResponse.sol";
 
-    struct RequestStatus {
-        bool fulfilled; // whether the request has been successfully fulfilled
-        bool exists; // whether a requestId exists
-        uint256[] randomWords;
-    }
-    mapping(uint256 => RequestStatus)
-        public s_requests; /* requestId --> requestStatus */
+contract ChainlinkAdapter is VRFConsumerBaseV2, ConfirmedOwner, RandomRequestResponse {
+
     VRFCoordinatorV2Interface COORDINATOR;
 
     // Your subscription ID.
-    uint64 s_subscriptionId;
+    uint64 subscriptionId;
 
     // past requests Id.
-    uint256[] public requestIds;
     uint256 public lastRequestId;
 
     // The gas lane to use, which specifies the maximum gas price to bump to.
@@ -51,7 +43,7 @@ contract RandomAdapter is VRFConsumerBaseV2, ConfirmedOwner {
      * COORDINATOR: 0x8103B0A8A00be2DDC778e6e7eaa21791Cd364625
      */
     constructor(
-        uint64 subscriptionId
+        uint64 _subscriptionId
     )
         VRFConsumerBaseV2(0x8103B0A8A00be2DDC778e6e7eaa21791Cd364625)
         ConfirmedOwner(msg.sender)
@@ -59,29 +51,29 @@ contract RandomAdapter is VRFConsumerBaseV2, ConfirmedOwner {
         COORDINATOR = VRFCoordinatorV2Interface(
             0x8103B0A8A00be2DDC778e6e7eaa21791Cd364625
         );
-        s_subscriptionId = subscriptionId;
+        subscriptionId = _subscriptionId;
     }
 
     // Assumes the subscription is funded sufficiently.
-    function requestRandomWords()
-        external
+    function requestRandom(function (uint) internal returns (uint) f)
+        internal
+        override
         onlyOwner
         returns (uint256 requestId)
     {
         // Will revert if subscription is not set and funded.
         requestId = COORDINATOR.requestRandomWords(
             keyHash,
-            s_subscriptionId,
+            subscriptionId,
             requestConfirmations,
             callbackGasLimit,
             numWords
         );
-        s_requests[requestId] = RequestStatus({
-            randomWords: new uint256[](0),
-            exists: true,
-            fulfilled: false
+        requests[requestId] = Request({
+            randomWord: 0,
+            pending: true,
+            fp: f
         });
-        requestIds.push(requestId);
         lastRequestId = requestId;
         emit RequestSent(requestId, numWords);
         return requestId;
@@ -91,17 +83,14 @@ contract RandomAdapter is VRFConsumerBaseV2, ConfirmedOwner {
         uint256 _requestId,
         uint256[] memory _randomWords
     ) internal override {
-        require(s_requests[_requestId].exists, "request not found");
-        s_requests[_requestId].fulfilled = true;
-        s_requests[_requestId].randomWords = _randomWords;
-        emit RequestFulfilled(_requestId, _randomWords);
+        fulfillRandom(_requestId, _randomWords[0]);
     }
 
     function getRequestStatus(
         uint256 _requestId
-    ) external view returns (bool fulfilled, uint256[] memory randomWords) {
-        require(s_requests[_requestId].exists, "request not found");
-        RequestStatus memory request = s_requests[_requestId];
-        return (request.fulfilled, request.randomWords);
+    ) external view returns (bool) {
+        require(requests[_requestId].pending, "request not found");
+        Request memory request = requests[_requestId];
+        return (request.pending);
     }
 }
