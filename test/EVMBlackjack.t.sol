@@ -51,8 +51,8 @@ contract EVMBlackjackTest is Test {
         evmbj.sit();
 
         assertEq(chip.balanceOf(player), PLAYER_STARTING_BALANCE, "Player CHIP balance");
-        assertEq(chip.balanceOf(address(evmbj)), HOUSE_STARTING_BALANCE - PLAYER_STARTING_BALANCE, "House CHIP balance");        
-        assertGame(player, EVMBlackjack.GameState.READY_FOR_BET, SHOE_STARTING_COUNT, 0);
+        assertEq(chip.balanceOf(address(evmbj)), HOUSE_STARTING_BALANCE - PLAYER_STARTING_BALANCE, "House CHIP balance");
+        assertGame(player, EVMBlackjack.GameState.READY_FOR_BET, SHOE_STARTING_COUNT, 0, false);
     }
 
     // TODO sad path, check that Player isn't already sitting at a table
@@ -91,7 +91,7 @@ contract EVMBlackjackTest is Test {
             HOUSE_STARTING_BALANCE - PLAYER_STARTING_BALANCE + BETSIZE1,
             "House CHIP balance"
         );
-        assertGame(player, EVMBlackjack.GameState.PLAYER_ACTION, SHOE_STARTING_COUNT, BETSIZE1);
+        assertGame(player, EVMBlackjack.GameState.READY_FOR_BET, SHOE_STARTING_COUNT, BETSIZE1, true);
     }
 
     function testRevert_player_placeBet_whenInsufficientApprovalGranted() public {
@@ -124,6 +124,20 @@ contract EVMBlackjackTest is Test {
         vm.stopPrank();
     }
 
+    function test_player_placeBet_andFulfillEntropy() public {
+        vm.startPrank(player);
+        chip.approve(address(evmbj), type(uint256).max);
+
+        evmbj.sit();
+
+        evmbj.placeBet(BETSIZE1);
+        assertGame(player, EVMBlackjack.GameState.READY_FOR_BET, SHOE_STARTING_COUNT, BETSIZE1, true);
+
+        evmbj.fulfillEntropy();
+
+        assertGame(player, EVMBlackjack.GameState.PLAYER_ACTION, SHOE_STARTING_COUNT - 4, BETSIZE1, false);
+    }
+
     /*//////////////////////////////////////////////////////////////
     //  Test Helpers
     //////////////////////////////////////////////////////////////*/
@@ -133,16 +147,28 @@ contract EVMBlackjackTest is Test {
     }
 
     function assertState(address _player, EVMBlackjack.GameState _state) internal {
-        (EVMBlackjack.GameState state, ,) = evmbj.games(_player);
+        (EVMBlackjack.GameState state,,,) = evmbj.games(_player);
 
         assertEq(state, _state, "Game state");
     }
 
-    function assertGame(address _player, EVMBlackjack.GameState _state, uint16 _remainingCardsInShoe, uint8 _bet) internal {
-        (EVMBlackjack.GameState state, EVMBlackjack.Shoe memory shoe, uint8 bet) = evmbj.games(_player);
+    function assertGame(
+        address _player,
+        EVMBlackjack.GameState _state,
+        uint16 _remainingCardsInShoe,
+        uint8 _bet,
+        bool _waitingForEntropy
+    ) internal {
+        (EVMBlackjack.GameState state, EVMBlackjack.Shoe memory shoe, uint8 bet, bool waitingForEntropy) =
+            evmbj.games(_player);
 
         assertEq(state, _state, "Game state");
         assertEq(shoe.remainingCardsInShoe, _remainingCardsInShoe, "Shoe count");
         assertEq(bet, _bet, "Player bet");
+        if (_waitingForEntropy) {
+            assertTrue(waitingForEntropy, "Waiting for entropy");
+        } else {
+            assertTrue(!waitingForEntropy, "Waiting for entropy");
+        }
     }
 }

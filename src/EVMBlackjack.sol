@@ -28,6 +28,7 @@ contract EVMBlackjack {
         GameState state;
         Shoe shoe;
         uint8 bet;
+        bool waitingForEntropy;
     }
 
     constructor(Chip _chip) {
@@ -44,7 +45,8 @@ contract EVMBlackjack {
         games[msg.sender] = Game({
             state: GameState.READY_FOR_BET,
             shoe: Shoe({remainingCardsInShoe: 52 * 6}),
-            bet: 0
+            bet: 0,
+            waitingForEntropy: false
         });
     }
 
@@ -58,17 +60,44 @@ contract EVMBlackjack {
 
     function placeBet(uint8 betSize) public {
         //
-
         if (betSize < MINIMUM_BET_SIZE || betSize > MAXIMUM_BET_SIZE) {
             revert InvalidBetSize(betSize);
         }
 
         chip.transferFrom(msg.sender, address(this), betSize);
-        games[msg.sender].state = GameState.PLAYER_ACTION;
-        games[msg.sender].bet = betSize;
+
+        Game memory game = games[msg.sender];
+        game.bet = betSize;
+        game.waitingForEntropy = true;
+
+        games[msg.sender] = game;
     }
 
-    function deal() public {}
+    function fulfillEntropy() public {
+        Game storage game = games[msg.sender];
+
+        if (game.state == GameState.READY_FOR_BET) {
+            dealCardToPlayer(game.shoe);
+            dealCardToDealer(game.shoe);
+            dealCardToPlayer(game.shoe);
+            dealCardToDealer(game.shoe);
+
+            game.shoe.remainingCardsInShoe = 52 * 6 - 4;
+            game.state = GameState.PLAYER_ACTION;
+        } else if (game.state == GameState.PLAYER_ACTION) {
+            dealCardToPlayer(game.shoe);
+        } else if (game.state == GameState.DEALER_ACTION) {
+            dealCardToDealer(game.shoe);
+        } else {
+            //
+        }
+
+        game.waitingForEntropy = false;
+    }
+
+    function dealCardToPlayer(Shoe memory shoe) public {}
+
+    function dealCardToDealer(Shoe memory shoe) public {}
 
     /*//////////////////////////////////////////////////////////////
     //  Player Action
@@ -81,5 +110,4 @@ contract EVMBlackjack {
     //////////////////////////////////////////////////////////////*/
 
     //
-
 }
