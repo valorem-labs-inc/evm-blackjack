@@ -8,7 +8,15 @@ contract Contract {
 
     uint64 SUBSCRIPTION_ID = 145;
 
-    constructor() {
-        randomAdapter = new ChainlinkAdapter(SUBSCRIPTION_ID);
+    constructor(
+        address _coordinator,
+        uint64 _subscriptionId,
+        bytes32 _keyHash
+    ) {
+        randomAdapter = new ChainlinkAdapter(
+            _coordinator,
+            _subscriptionId,
+            _keyHash
+        );
     }
 }

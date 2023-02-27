@@ -20,8 +20,7 @@ contract ChainlinkAdapter is VRFConsumerBaseV2, ConfirmedOwner, RandomRequestRes
     // The gas lane to use, which specifies the maximum gas price to bump to.
     // For a list of available gas lanes on each network,
     // see https://docs.chain.link/docs/vrf/v2/subscription/supported-networks/#configurations
-    bytes32 keyHash =
-        0x474e34a077df58807dbe9c96d3c009b23b3c6d0cce433e59bbf5b34f823bc56c;
+    bytes32 keyHash;
 
     // Depends on the number of requested values that you want sent to the
     // fulfillRandomWords() function. Storing each word costs about 20,000 gas,
@@ -34,24 +33,22 @@ contract ChainlinkAdapter is VRFConsumerBaseV2, ConfirmedOwner, RandomRequestRes
     // The default is 3, but you can set this higher.
     uint16 requestConfirmations = 3;
 
-    // For this example, retrieve 2 random values in one request.
     // Cannot exceed VRFCoordinatorV2.MAX_NUM_WORDS.
-    uint32 numWords = 2;
+    uint32 numWords = 1;
 
-    /**
-     * HARDCODED FOR SEPOLIA
-     * COORDINATOR: 0x8103B0A8A00be2DDC778e6e7eaa21791Cd364625
-     */
     constructor(
-        uint64 _subscriptionId
+        address _coordinator,
+        uint64 _subscriptionId,
+        bytes32 _keyHash
     )
-        VRFConsumerBaseV2(0x8103B0A8A00be2DDC778e6e7eaa21791Cd364625)
+        VRFConsumerBaseV2(_coordinator)
         ConfirmedOwner(msg.sender)
     {
         COORDINATOR = VRFCoordinatorV2Interface(
-            0x8103B0A8A00be2DDC778e6e7eaa21791Cd364625
+            _coordinator
         );
         subscriptionId = _subscriptionId;
+        keyHash = _keyHash;
     }
 
     // Assumes the subscription is funded sufficiently.

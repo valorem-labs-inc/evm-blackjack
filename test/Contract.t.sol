@@ -9,7 +9,11 @@ contract TestContract is Test {
     Contract c;
 
     function setUp() public {
-        c = new Contract();
+        c = new Contract(
+            address(0),
+            uint64(0),
+            bytes32(0)
+        );
     }
 
     function testBar() public {
