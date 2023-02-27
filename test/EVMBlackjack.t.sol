@@ -15,6 +15,7 @@ contract EVMBlackjackTest is Test {
 
     uint256 internal constant HOUSE_STARTING_BALANCE = 1_000_000;
     uint256 internal constant PLAYER_STARTING_BALANCE = 1_000;
+    uint256 internal constant SHOE_STARTING_COUNT = 52 * 6;
 
     uint8 internal constant BETSIZE1 = 10;
     uint8 internal constant BETSIZE2 = 25;
@@ -47,6 +48,7 @@ contract EVMBlackjackTest is Test {
         assertEq(chip.balanceOf(address(game)), HOUSE_STARTING_BALANCE - PLAYER_STARTING_BALANCE, "House CHIP balance");
         assertEq(game.table(player), 1, "Player table");
         assertEq(game.state(player), EVMBlackjack.GameState.READY_FOR_BET, "Player table state");
+        assertEq(game.shoe(player), SHOE_STARTING_COUNT, "Shoe starting count");
     }
 
     // TODO sad path, check that Player isn't already sitting at a table

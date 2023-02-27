@@ -8,19 +8,12 @@ contract EVMBlackjack {
 
     Chip private chip;
     mapping(address => uint256) private tables;
-    mapping(uint256 => GameState) private states;
+    mapping(address => GameState) private states;
     mapping(address => uint256) private bets;
+    mapping(address => Shoe) private shoes;
 
     uint8 internal constant MINIMUM_BET_SIZE = 10;
     uint8 internal constant MAXIMUM_BET_SIZE = 100;
-
-    constructor(Chip _chip) {
-        chip = _chip;
-    }
-
-    /*//////////////////////////////////////////////////////////////
-    //  Game State
-    //////////////////////////////////////////////////////////////*/
 
     enum GameState {
         NO_GAME,
@@ -31,8 +24,20 @@ contract EVMBlackjack {
         READY_FOR_PAYOUTS
     }
 
+    struct Shoe {
+        uint16 remainingCardsInShoe;
+    }
+
+    constructor(Chip _chip) {
+        chip = _chip;
+    }
+
+    /*//////////////////////////////////////////////////////////////
+    //  Game State
+    //////////////////////////////////////////////////////////////*/
+
     function state(address _player) public view returns (GameState) {
-        return states[tables[_player]];
+        return states[_player];
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -41,14 +46,16 @@ contract EVMBlackjack {
 
     function sit() public {
         chip.transfer(msg.sender, 1_000);
+
         tables[msg.sender] = 1;
-        states[1] = GameState.READY_FOR_BET;
+        states[msg.sender] = GameState.READY_FOR_BET;
+        shoes[msg.sender] = Shoe({remainingCardsInShoe: 52 * 6});
     }
 
     function leave() public {
         //
         tables[msg.sender] = 0;
-        states[1] = GameState.NO_GAME;
+        states[msg.sender] = GameState.NO_GAME;
     }
 
     function table(address _player) public view returns (uint256) {
@@ -66,7 +73,7 @@ contract EVMBlackjack {
 
         chip.transferFrom(msg.sender, address(this), betSize);
         bets[msg.sender] = betSize;
-        states[1] = GameState.READY_FOR_DEAL;
+        states[msg.sender] = GameState.READY_FOR_DEAL;
     }
 
     function bet(address _player) public view returns (uint256) {
@@ -78,6 +85,10 @@ contract EVMBlackjack {
     //////////////////////////////////////////////////////////////*/
 
     function deal() public {}
+
+    function shoe(address _player) public view returns (uint16) {
+        return shoes[_player].remainingCardsInShoe;
+    }
 
     /*//////////////////////////////////////////////////////////////
     //  Ready for Player Action
