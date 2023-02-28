@@ -9,8 +9,9 @@ abstract contract RandomRequester {
     struct Request {
         bool pending; 
         uint256 randomWord;
+        // TODO: other state for status checking? e.g. Enqueue time?
         // function pointer
-        function (uint) internal returns (uint) fp;
+        function (uint256, uint256) internal returns (uint256) fp;
     }
 
     mapping(uint256 => Request) requests; 
@@ -20,10 +21,11 @@ abstract contract RandomRequester {
      * @notice of this adapter. Accepts a callback function on this contract to provide with the
      * @notice returned random value. The implementor is responsible for storing a Request in the 
      * @notice requests map.
-     * @param f The function pointer to the callback function.
+     * @param f The function pointer to the callback function. Accepts two uint arguments for 
+     * the request id, and the fulfilled randomness request.
      * @return The request ID associated with this request for randomness
      */
-    function requestRandom(function (uint) internal returns (uint) f) internal virtual returns (uint256);
+    function requestRandom(function (uint256, uint256) internal returns (uint256) f) internal virtual returns (uint256);
 
     /**
      * @notice A function called by the concrete implementation of this abstract contract, after
@@ -37,7 +39,7 @@ abstract contract RandomRequester {
 
         Request memory rq = requests[requestId];
 
-        rq.fp(randomWord);
+        rq.fp(requestId, randomWord);
 
         delete requests[requestId];
 

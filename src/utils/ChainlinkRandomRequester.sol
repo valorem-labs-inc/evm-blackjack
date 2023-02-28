@@ -30,8 +30,7 @@ contract ChainlinkRandomRequester is VRFConsumerBaseV2, ConfirmedOwner, RandomRe
     // function.
     uint32 callbackGasLimit = 100000;
 
-    // The default is 3, but you can set this higher.
-    uint16 requestConfirmations = 3;
+    uint16 requestConfirmations;
 
     // Cannot exceed VRFCoordinatorV2.MAX_NUM_WORDS.
     uint32 numWords = 1;
@@ -49,16 +48,17 @@ contract ChainlinkRandomRequester is VRFConsumerBaseV2, ConfirmedOwner, RandomRe
         );
 
         (uint16 minimumRequestConfirmations,
-        uint32 maxGasLimit,
-        uint32 stalenessSeconds,
-        uint32 gasAfterPaymentCalculation) = COORDINATOR.getConfig();
+        ,
+        ) = COORDINATOR.getRequestConfig();
+
+        requestConfirmations = minimumRequestConfirmations;
 
         subscriptionId = _subscriptionId;
         keyHash = _keyHash;
     }
 
     // Assumes the subscription is funded sufficiently.
-    function requestRandom(function (uint) internal returns (uint) f)
+    function requestRandom(function (uint256, uint256) internal returns (uint256) f)
         internal
         override
         onlyOwner
@@ -70,7 +70,7 @@ contract ChainlinkRandomRequester is VRFConsumerBaseV2, ConfirmedOwner, RandomRe
             subscriptionId,
             requestConfirmations,
             callbackGasLimit,
-            numWords
+            1
         );
         requests[requestId] = Request({
             randomWord: 0,
@@ -78,15 +78,15 @@ contract ChainlinkRandomRequester is VRFConsumerBaseV2, ConfirmedOwner, RandomRe
             fp: f
         });
         lastRequestId = requestId;
-        emit RequestSent(requestId, numWords);
+        emit RequestSent(requestId, 1);
         return requestId;
     }
 
     function fulfillRandomWords(
-        uint256 _requestId,
-        uint256[] memory _randomWords
+        uint256 requestId,
+        uint256[] memory randomWords
     ) internal override {
-        fulfillRandom(_requestId, _randomWords[0]);
+        fulfillRandom(requestId, randomWords[0]);
     }
 
     function getRequestStatus(
