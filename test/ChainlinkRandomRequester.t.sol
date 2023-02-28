@@ -5,7 +5,10 @@ import "forge-std/Test.sol";
 import "src/utils/ChainlinkRandomRequester.sol";
 
 contract RevertingRandomRequester is RandomRequester {
-    function requestRandom(function (uint256, uint256) internal returns (uint256) f) internal override returns (uint256) {
+    function requestRandom(
+        uint16,
+        function (uint256, uint256[] memory) internal returns (uint256)) internal override pure returns (uint256)
+    {
         revert("Random revert");
     }
 }
@@ -14,7 +17,7 @@ contract RevertingRandomRequester is RandomRequester {
 contract RevertingCoordinator is VRFCoordinatorV2Interface {
     function getRequestConfig()
     external
-    view
+    pure 
     returns (
       uint16,
       uint32,
@@ -24,52 +27,52 @@ contract RevertingCoordinator is VRFCoordinatorV2Interface {
     }
 
     function requestRandomWords(
-        bytes32 keyHash,
-        uint64 subId,
-        uint16 minimumRequestConfirmations,
-        uint32 callbackGasLimit,
-        uint32 numWords
-    ) external returns (uint256 requestId) {
+        bytes32,
+        uint64,
+        uint16,
+        uint32,
+        uint32 
+    ) external pure returns (uint256) {
         revert("requestRandomWords");
     }
 
-    function createSubscription() external returns (uint64 subId) {
+    function createSubscription() external pure returns (uint64) {
         revert("createSubscription");
     }
 
-    function getSubscription(uint64 subId)
+    function getSubscription(uint64)
     external
-    view
+    pure 
     returns (
-        uint96 balance,
-        uint64 reqCount,
-        address owner,
-        address[] memory consumers
+        uint96,
+        uint64,
+        address,
+        address[] memory
     ) {
         revert("getSubscription");
     }
 
-    function requestSubscriptionOwnerTransfer(uint64 subId, address newOwner) external {
+    function requestSubscriptionOwnerTransfer(uint64, address) external pure {
         revert("requestSubscriptionOwnerTransfer");
     }
 
-    function acceptSubscriptionOwnerTransfer(uint64 subId) external {
+    function acceptSubscriptionOwnerTransfer(uint64) external pure {
         revert("acceptSubscriptionOwnerTransfer");
     }
 
-    function addConsumer(uint64 subId, address consumer) external {
+    function addConsumer(uint64, address) external pure {
         revert("addConsumer");
     }
 
-    function removeConsumer(uint64 subId, address consumer) external {
+    function removeConsumer(uint64, address) external pure {
         revert("removeConsumer");
     }
 
-    function cancelSubscription(uint64 subId, address to) external {
+    function cancelSubscription(uint64, address) external pure {
         revert("cancelSubscription");
     }
 
-    function pendingRequestExists(uint64 subId) external view returns (bool) {
+     function pendingRequestExists(uint64) external pure returns (bool) {
         revert("pendingRequestExists");
     }
 }
@@ -99,7 +102,6 @@ contract ChainlinkRandomRequesterTest is Test {
 
         // expect revert if getConfig reverts
         address mockCoordinatorAddress = address(new RevertingCoordinator());
-        VRFCoordinatorV2Interface mockCoordinator = VRFCoordinatorV2Interface(mockCoordinatorAddress);
         vm.expectRevert(bytes("getRequestConfig"));
         c = new ChainlinkRandomRequester(mockCoordinatorAddress, 0, 0);
     }

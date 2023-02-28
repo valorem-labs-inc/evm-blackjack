@@ -32,9 +32,6 @@ contract ChainlinkRandomRequester is VRFConsumerBaseV2, ConfirmedOwner, RandomRe
 
     uint16 requestConfirmations;
 
-    // Cannot exceed VRFCoordinatorV2.MAX_NUM_WORDS.
-    uint32 numWords = 1;
-
     constructor(
         address _coordinator,
         uint64 _subscriptionId,
@@ -58,7 +55,9 @@ contract ChainlinkRandomRequester is VRFConsumerBaseV2, ConfirmedOwner, RandomRe
     }
 
     // Assumes the subscription is funded sufficiently.
-    function requestRandom(function (uint256, uint256) internal returns (uint256) f)
+    function requestRandom(
+        uint16 numWords,
+        function (uint256, uint256[] memory) internal returns (uint256) f)
         internal
         override
         onlyOwner
@@ -70,10 +69,9 @@ contract ChainlinkRandomRequester is VRFConsumerBaseV2, ConfirmedOwner, RandomRe
             subscriptionId,
             requestConfirmations,
             callbackGasLimit,
-            1
+            numWords
         );
         requests[requestId] = Request({
-            randomWord: 0,
             pending: true,
             fp: f
         });
@@ -86,7 +84,7 @@ contract ChainlinkRandomRequester is VRFConsumerBaseV2, ConfirmedOwner, RandomRe
         uint256 requestId,
         uint256[] memory randomWords
     ) internal override {
-        fulfillRandom(requestId, randomWords[0]);
+        fulfillRandom(requestId, randomWords);
     }
 
     function getRequestStatus(
