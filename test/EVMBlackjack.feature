@@ -1,6 +1,6 @@
 Feature: EVM Blackjack
 
-    As a Player or a Dealer,
+    As a Player,
     I want to play blackjack on-chain,
     so that I can be assured of fairness while participating in an enjoyable online game of skill.
 
