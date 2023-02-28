@@ -58,11 +58,43 @@ contract RevertingCoordinator is VRFCoordinatorV2Interface {
     }
 }
 
+
+contract TestRandomRequester is ChainlinkRandomRequester {
+    event LogRand(uint256 requestId, uint256[] randWords);
+
+    constructor(address _coordinator, uint64 _subscriptionId, bytes32 _keyHash) 
+        ChainlinkRandomRequester(_coordinator, _subscriptionId, _keyHash) 
+    {}
+
+    function requestRandomEmission(uint16 numRandom) public returns (uint256) {
+        return requestRandom(numRandom, testCallback);
+    }
+
+    function testCallback(uint256 requestId, uint256[] memory randWords) internal returns (uint256) {
+        emit LogRand(requestId, randWords);
+        return 0;
+    }
+}
+
 contract ChainlinkRandomRequesterTest is Test {
+    event LogRand(uint256 requestId, uint256[] randWords);
+    event RequestFulfilled(uint256 requestId, uint256[] randomWords);
+    event RequestSent(uint256 requestId, uint32 numWords);
+
     address coordinatorAddress;
     VRFCoordinatorV2Interface vrfc;
     uint32 chainlinkSubscriptionId;
-    ChainlinkRandomRequester c;
+    TestRandomRequester t;
+
+    modifier withInit {
+        vm.mockCall(
+            coordinatorAddress,
+            abi.encodeWithSelector(VRFCoordinatorV2Interface.getRequestConfig.selector),
+            abi.encode(1, 0, 0, 0)
+        );
+        t = new TestRandomRequester(coordinatorAddress, 0, 0);
+        _;
+    }
 
     function setUp() public {
         coordinatorAddress = address(0xFFFF);
@@ -76,7 +108,7 @@ contract ChainlinkRandomRequesterTest is Test {
             abi.encodeWithSelector(VRFCoordinatorV2Interface.getRequestConfig.selector),
             abi.encode(1, 0, 0, 0)
         );
-        c = new ChainlinkRandomRequester(coordinatorAddress, 0, 0);
+        ChainlinkRandomRequester c = new ChainlinkRandomRequester(coordinatorAddress, 0, 0);
 
         // TODO: assert state set in ctor
 
@@ -86,12 +118,56 @@ contract ChainlinkRandomRequesterTest is Test {
         c = new ChainlinkRandomRequester(mockCoordinatorAddress, 0, 0);
     }
 
-    function testBar() public {
-        assertEq(uint256(1), uint256(1), "ok");
-    }
+    function testRequestReceive() public withInit {
+        uint256[] memory randVal = new uint256[](1);
+        randVal[0] = uint256(0xDEADBEEF);
+        // enqueue a request for a single random word 
+        uint256 mockRequestId = uint256(0x1234);
+        vm.mockCall(
+            coordinatorAddress,
+            abi.encodeWithSelector(
+                VRFCoordinatorV2Interface.requestRandomWords.selector,
+                0, //keyhash
+                0, //subscription id
+                1, // request confirmations
+                100000, // gas limit
+                1 //num words
+            ),
+            abi.encode(mockRequestId)
+        );
+        uint256 requestId = t.requestRandomEmission(1);
 
-    function testFoo(uint256 x) public {
-        vm.assume(x < type(uint128).max);
-        assertEq(x + x, x * 2);
+        // assert that the request was stored and fields are correct
+        assertEq(requestId, mockRequestId);
+        // TODO: more fields as necessary in the request
+
+        // prank the callback from the coordinatoor
+        vm.prank(coordinatorAddress);
+
+        // expect emission of the "rand" values
+        vm.expectEmit(true, true, true, true);
+        emit LogRand(mockRequestId, randVal);
+        t.rawFulfillRandomWords(mockRequestId, randVal);
+
+        mockRequestId++;
+        // inc request id, assert RequestFulfilled is emitted
+        vm.mockCall(
+            coordinatorAddress,
+            abi.encodeWithSelector(
+                VRFCoordinatorV2Interface.requestRandomWords.selector,
+                0, //keyhash
+                0, //subscription id
+                1, // request confirmations
+                100000, // gas limit
+                1 //num words
+            ),
+            abi.encode(mockRequestId)
+        );
+        requestId = t.requestRandomEmission(1);
+
+        vm.prank(coordinatorAddress);
+        vm.expectEmit(true, true, true, true);
+        emit RequestFulfilled(mockRequestId, randVal);
+        t.rawFulfillRandomWords(mockRequestId, randVal);
     }
 }

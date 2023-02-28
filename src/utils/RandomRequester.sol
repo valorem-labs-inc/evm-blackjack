@@ -5,6 +5,8 @@ abstract contract RandomRequester {
     event RequestSent(uint256 requestId, uint32 numWords);
     event RequestFulfilled(uint256 requestId, uint256[] randomWords);
 
+    error RequestDoesNotExist(uint256);
+
     struct Request {
         bool pending;
         // TODO: other state for status checking? e.g. Enqueue time?
@@ -46,5 +48,14 @@ abstract contract RandomRequester {
         delete requests[requestId];
 
         emit RequestFulfilled(requestId, randomWords);
+    }
+
+    function getRequest(uint256 requestId) public view returns (bool pending) {
+        Request memory rq = requests[requestId];
+        if (!rq.pending) {
+            revert RequestDoesNotExist(requestId);
+        }
+
+        return rq.pending;
     }
 }

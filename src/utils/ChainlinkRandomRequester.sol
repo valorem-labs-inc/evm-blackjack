@@ -64,10 +64,4 @@ contract ChainlinkRandomRequester is VRFConsumerBaseV2, ConfirmedOwner, RandomRe
     function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
         fulfillRandom(requestId, randomWords);
     }
-
-    function getRequestStatus(uint256 _requestId) external view returns (bool) {
-        require(requests[_requestId].pending, "request not found");
-        Request memory request = requests[_requestId];
-        return (request.pending);
-    }
 }
