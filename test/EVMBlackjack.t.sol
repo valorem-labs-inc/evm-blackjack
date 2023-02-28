@@ -20,11 +20,11 @@ contract EVMBlackjackTest is Test {
     uint256 internal constant PLAYER_STARTING_BALANCE = 1_000;
     uint16 internal constant SHOE_STARTING_COUNT = 52 * 6;
 
-    uint8 internal constant BETSIZE1 = 10;
-    uint8 internal constant BETSIZE2 = 25;
-    uint8 internal constant BETSIZE3 = 50;
-    uint8 internal constant BETSIZE4 = 75;
-    uint8 internal constant BETSIZE5 = 100;
+    uint16 internal constant BETSIZE1 = 10;
+    uint16 internal constant BETSIZE2 = 25;
+    uint16 internal constant BETSIZE3 = 50;
+    uint16 internal constant BETSIZE4 = 75;
+    uint16 internal constant BETSIZE5 = 100;
 
     function setUp() public {
         chip = new Chip();
@@ -49,157 +49,11 @@ contract EVMBlackjackTest is Test {
         _;
     }
 
-    /*//////////////////////////////////////////////////////////////
-    //  Game States
-    //////////////////////////////////////////////////////////////*/
-
-    function test_initialState() public {
-        assertState(player, EVMBlackjack.GameState.READY_FOR_BET);
-    }
-
-    // Place Bet
-
-    function test_placeBet_whenState_readyForBet() public withChip(player, 1000) withApproval(player) {
+    modifier readyForPlayerAction(address _player) {
         vm.prank(player);
-        evmbj.placeBet(10);
-
-        assertState(player, EVMBlackjack.GameState.WAITING_FOR_RANDOMNESS);
-    }
-
-    function testRevert_placeBet_whenState_waitingForRandomness() public {
-        // TODO
-    }
-
-    function testRevert_placeBet_whenState_readyForInsurance() public {
-        // TODO
-    }
-
-    function testRevert_placeBet_whenState_readyForPlayerAction() public {
-        // TODO
-    }
-
-    function testRevert_placeBet_whenState_dealerAction() public {
-        // TODO
-    }
-
-    // Fulfill Randomness
-
-    function test_fulfillRandomness_whenState_waitingForRandomness() public withChip(player, 1000) withApproval(player) {
-        vm.prank(player);
-        evmbj.placeBet(10);
-
-        evmbj.fulfillRandomness(player, keccak256("hey"));
-
-        assertState(player, EVMBlackjack.GameState.READY_FOR_INSURANCE);                
-    }
-
-    function testRevert_fulfillRandomness_whenState_readyForBet() public {
-        vm.expectRevert(EVMBlackjack.InvalidStateTransition.selector);
-        evmbj.fulfillRandomness(player, keccak256("hey"));
-    }
-
-    function testRevert_fulfillRandomness_whenState_readyForInsurance() public {
-        // TODO
-    }
-
-    function testRevert_fulfillRandomness_whenState_readyForPlayerAction() public {
-        // TODO
-    }
-
-    function testRevert_fulfillRandomness_whenState_dealerAction() public {
-        // TODO
-    }
-
-    // Take Insurance / Decline Insurance
-
-    function test_takeInsurance_whenState_readyForInsurance() public withChip(player, 1000) withApproval(player) {
-        vm.prank(player);
-        evmbj.placeBet(10);
-
-        evmbj.fulfillRandomness(player, keccak256("hey"));
-
-        vm.prank(player);
-        evmbj.takeInsurance(true);
-
-        assertState(player, EVMBlackjack.GameState.READY_FOR_PLAYER_ACTION);
-    }
-
-    // TODO testRevert_takeInsurance_whenDealerDoesNotShowAnAce
-    // TODO testRevert_declineInsurance_whenDealerDoesNotShowAnAce
-
-    function testRevert_takeInsurance_whenState_readyForBet() public {
-        vm.expectRevert(EVMBlackjack.InvalidStateTransition.selector);
-
-        vm.prank(player);
-        evmbj.takeInsurance(true);
-    }
-
-    function testRevert_takeInsurance_whenState_waitingForRandomness() public withChip(player, 1000) withApproval(player) {
-        vm.prank(player);
-        evmbj.placeBet(10);
-
-        vm.expectRevert(EVMBlackjack.InvalidStateTransition.selector);
-
-        vm.prank(player);
-        evmbj.takeInsurance(true);
-    }
-
-    function testRevert_takeInsurance_whenState_readyForPlayerAction() public withChip(player, 1000) withApproval(player) {
-        // TODO
-    }
-
-    function testRevert_takeInsurance_whenState_dealerAction() public withChip(player, 1000) withApproval(player) {
-        // TODO
-    }
-
-    function test_declineInsurance_whenState_readyForInsurance() public withChip(player, 1000) withApproval(player) {
-        vm.prank(player);
-        evmbj.placeBet(10);
-
-        evmbj.fulfillRandomness(player, keccak256("hey"));
-
-        vm.prank(player);
-        evmbj.takeInsurance(false);
-
-        assertState(player, EVMBlackjack.GameState.READY_FOR_PLAYER_ACTION);
-    }
-
-    function testRevert_declineInsurance_whenState_readyForBet() public {
-        vm.expectRevert(EVMBlackjack.InvalidStateTransition.selector);
-
-        vm.prank(player);
-        evmbj.takeInsurance(false);
-    }
-
-    function testRevert_declineInsurance_whenState_waitingForRandomness() public withChip(player, 1000) withApproval(player) {
-        vm.prank(player);
-        evmbj.placeBet(10);
-
-        vm.expectRevert(EVMBlackjack.InvalidStateTransition.selector);
-
-        vm.prank(player);
-        evmbj.takeInsurance(false);
-    }
-
-    function testRevert_declineInsurance_whenState_readyForPlayerAction() public withChip(player, 1000) withApproval(player) {
-        // TODO
-    }
-
-    function testRevert_declineInsurance_whenState_dealerAction() public withChip(player, 1000) withApproval(player) {
-        // TODO
-    }
-
-    // Split Aces
-
-    function test_splitAces_whenState_readyForPlayerAction_andPlayerHasAA() public withChip(player, 1000) withApproval(player) {
-        vm.prank(player);
-        evmbj.placeBet(10);
-
+        evmbj.placeBet(BETSIZE1);
         evmbj.fulfillRandomness(player, "");
-        evmbj.cheatInitialPlayerHand(player, 0, EVMBlackjack.Card.ACE_SPADES, EVMBlackjack.Card.ACE_CLUBS);
-
-        vm.prank(player);
-        // 
+        _;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -212,115 +66,483 @@ contract EVMBlackjackTest is Test {
         uint8 raw = _input % 13 + 1;
         uint8 expected = (raw >= 10) ? 10 : raw;
 
-        EVMBlackjack.Card card = EVMBlackjack.Card(_input);
-        assertEq(evmbj.convertCardToValue(card), expected);
+        assertEq(evmbj.convertCardToValue(_input), expected);
     }
 
     /*//////////////////////////////////////////////////////////////
-    //  Ready for Bet
+    //  Place Bet
     //////////////////////////////////////////////////////////////*/
 
-    // function test_player_placeBet() public {
-    //     vm.startPrank(player);
-    //     chip.approve(address(evmbj), type(uint256).max);
+    function test_initialState() public {
+        assertState(player, EVMBlackjack.State.READY_FOR_BET);
+    }
 
-    //     evmbj.sit();
+    function test_placeBet() public withChip(player, 1000) {
+        vm.startPrank(player);
+        chip.approve(address(evmbj), type(uint256).max);
+        evmbj.placeBet(BETSIZE1);
+        vm.stopPrank();
 
-    //     evmbj.placeBet(BETSIZE1);
-    //     vm.stopPrank();
+        (
+            EVMBlackjack.State state,
+            uint16 shoeCount,
+            uint8[] memory dealerCards,
+            uint8[] memory playerCards,
+            uint16 betSize,
+            EVMBlackjack.Action lastAction,
+            uint16 insurance
+        ) = evmbj.getGame(player);
 
-    //     assertEq(chip.balanceOf(player), PLAYER_STARTING_BALANCE - BETSIZE1, "Player CHIP balance");
-    //     assertEq(
-    //         chip.balanceOf(address(evmbj)),
-    //         HOUSE_STARTING_BALANCE - PLAYER_STARTING_BALANCE + BETSIZE1,
-    //         "House CHIP balance"
-    //     );
-    //     assertGame(player, EVMBlackjack.GameState.READY_FOR_BET, SHOE_STARTING_COUNT, BETSIZE1, true);
-    // }
+        assertEq(state, EVMBlackjack.State.WAITING_FOR_RANDOMNESS, "State");
+        assertEq(shoeCount, SHOE_STARTING_COUNT, "Shoe count");
+        assertEq(betSize, BETSIZE1, "Bet size");
+        assertEq(insurance, 0, "Insurance");
+        assertChips(PLAYER_STARTING_BALANCE - BETSIZE1, HOUSE_STARTING_BALANCE + BETSIZE1);
+    }
 
-    // function testRevert_player_placeBet_whenInsufficientApprovalGranted() public {
-    //     vm.startPrank(player);
-    //     evmbj.sit();
+    function testRevert_placeBet_whenInsufficientApprovalGranted() public {
+        vm.expectRevert(stdError.arithmeticError);
 
-    //     vm.expectRevert(stdError.arithmeticError);
+        vm.prank(player);
+        evmbj.placeBet(10);
+    }
 
-    //     evmbj.placeBet(10);
-    //     vm.stopPrank();
-    // }
+    function testRevert_placeBet_whenBelowMinimumBetSize() public {
+        vm.expectRevert(abi.encodeWithSelector(EVMBlackjack.InvalidBetSize.selector, BETSIZE1 - 1));
 
-    // function testRevert_player_placeBet_whenBelowMinimumBetSize() public {
-    //     vm.startPrank(player);
-    //     evmbj.sit();
+        vm.prank(player);
+        evmbj.placeBet(BETSIZE1 - 1);
+    }
 
-    //     vm.expectRevert(abi.encodeWithSelector(EVMBlackjack.InvalidBetSize.selector, BETSIZE1 - 1));
+    function testRevert_placeBet_whenBelowMaximumBetSize() public {
+        vm.expectRevert(abi.encodeWithSelector(EVMBlackjack.InvalidBetSize.selector, BETSIZE5 + 1));
 
-    //     evmbj.placeBet(BETSIZE1 - 1);
-    //     vm.stopPrank();
-    // }
+        vm.prank(player);
+        evmbj.placeBet(BETSIZE5 + 1);
+    }
 
-    // function testRevert_player_placeBet_whenBelowMaximumBetSize() public {
-    //     vm.startPrank(player);
-    //     evmbj.sit();
+    function test_placeBet_andFulfillRandomness_whenDealerShowsAce()
+        public
+        withChip(player, 1000)
+        withApproval(player)
+    {
+        vm.prank(player);
+        evmbj.placeBet(BETSIZE1);
 
-    //     vm.expectRevert(abi.encodeWithSelector(EVMBlackjack.InvalidBetSize.selector, BETSIZE5 + 1));
+        evmbj.fulfillRandomness(player, keccak256("ace"));
 
-    //     evmbj.placeBet(BETSIZE5 + 1);
-    //     vm.stopPrank();
-    // }
+        (
+            EVMBlackjack.State state,
+            uint16 shoeCount,
+            uint8[] memory dealerCards,
+            uint8[] memory playerCards,
+            uint16 betSize,
+            EVMBlackjack.Action lastAction,
+        ) = evmbj.getGame(player);
 
-    // function test_player_placeBet_andFulfillEntropy() public {
-    //     vm.startPrank(player);
-    //     chip.approve(address(evmbj), type(uint256).max);
+        assertEq(state, EVMBlackjack.State.READY_FOR_INSURANCE, "State");
+        assertEq(shoeCount, SHOE_STARTING_COUNT - 3, "Shoe count");
+        assertNumberOfCards(dealerCards, 1, "Dealer cards");
+        assertNumberOfCards(playerCards, 2, "Player cards");
+    }
 
-    //     evmbj.sit();
+    function test_placeBet_andFulfillRandomness_whenDealerDoesNotShowAce()
+        public
+        withChip(player, 1000)
+        withApproval(player)
+    {
+        vm.prank(player);
+        evmbj.placeBet(BETSIZE1);
 
-    //     evmbj.placeBet(BETSIZE1);
-    //     assertGame(player, EVMBlackjack.GameState.READY_FOR_BET, SHOE_STARTING_COUNT, BETSIZE1, true);
+        evmbj.fulfillRandomness(player, "");
 
-    //     evmbj.fulfillEntropy();
+        (
+            EVMBlackjack.State state,
+            uint16 shoeCount,
+            uint8[] memory dealerCards,
+            uint8[] memory playerCards,
+            uint16 betSize,
+            EVMBlackjack.Action lastAction,
+        ) = evmbj.getGame(player);
 
-    //     assertGame(player, EVMBlackjack.GameState.PLAYER_ACTION, SHOE_STARTING_COUNT - 4, BETSIZE1, false);
-    // }
+        assertEq(state, EVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State");
+        assertEq(shoeCount, SHOE_STARTING_COUNT - 3, "Shoe count");
+        assertNumberOfCards(dealerCards, 1, "Dealer cards");
+        assertNumberOfCards(playerCards, 2, "Player cards");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+    //  Take / Decline Insurance
+    //////////////////////////////////////////////////////////////*/
+
+    function test_takeInsurance() public withChip(player, 1000) withApproval(player) {
+        vm.prank(player);
+        evmbj.placeBet(BETSIZE1);
+        evmbj.fulfillRandomness(player, keccak256("ace"));
+
+        vm.prank(player);
+        evmbj.takeInsurance(true);
+
+        uint16 insuranceBet = BETSIZE1 / 2;
+
+        (
+            EVMBlackjack.State state,
+            uint16 shoeCount,
+            uint8[] memory dealerCards,
+            uint8[] memory playerCards,
+            uint16 betSize,
+            EVMBlackjack.Action lastAction,
+            uint16 insurance
+        ) = evmbj.getGame(player);
+
+        assertEq(state, EVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State");
+        assertEq(insurance, insuranceBet, "Insurance");
+        assertChips(PLAYER_STARTING_BALANCE - BETSIZE1 - insuranceBet, HOUSE_STARTING_BALANCE + BETSIZE1 + insuranceBet);
+    }
+
+    function test_declineInsurance() public withChip(player, 1000) withApproval(player) {
+        vm.prank(player);
+        evmbj.placeBet(BETSIZE1);
+        evmbj.fulfillRandomness(player, keccak256("ace"));
+
+        vm.prank(player);
+        evmbj.takeInsurance(false);
+
+        (
+            EVMBlackjack.State state,
+            uint16 shoeCount,
+            uint8[] memory dealerCards,
+            uint8[] memory playerCards,
+            uint16 betSize,
+            EVMBlackjack.Action lastAction,
+            uint16 insurance
+        ) = evmbj.getGame(player);
+
+        assertEq(state, EVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State");
+        assertEq(insurance, 0, "Insurance");
+        assertChips(PLAYER_STARTING_BALANCE - BETSIZE1, HOUSE_STARTING_BALANCE + BETSIZE1);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+    //  Player Action -- Split Aces
+    //////////////////////////////////////////////////////////////*/
+
+    //
+
+    /*//////////////////////////////////////////////////////////////
+    //  Player Action -- Split
+    //////////////////////////////////////////////////////////////*/
+
+    //
+
+    /*//////////////////////////////////////////////////////////////
+    //  Player Action -- Double Down
+    //////////////////////////////////////////////////////////////*/
+
+    function test_doubleDown() public withChip(player, 1000) withApproval(player) readyForPlayerAction(player) {
+        vm.prank(player);
+        evmbj.takeAction(EVMBlackjack.Action.DOUBLE_DOWN);
+
+        (
+            EVMBlackjack.State state,
+            uint16 shoeCount,
+            uint8[] memory dealerCards,
+            uint8[] memory playerCards,
+            uint16 betSize,
+            EVMBlackjack.Action lastAction,
+            uint16 insurance
+        ) = evmbj.getGame(player);
+
+        uint16 doubleDownBet = BETSIZE1 * 2;
+
+        assertEq(state, EVMBlackjack.State.WAITING_FOR_RANDOMNESS, "State");
+        assertEq(lastAction, EVMBlackjack.Action.DOUBLE_DOWN, "Last action");
+        assertEq(betSize, doubleDownBet, "Bet size"); // doubled bet size
+        assertChips(PLAYER_STARTING_BALANCE - doubleDownBet, HOUSE_STARTING_BALANCE + doubleDownBet);
+    }
+
+    function test_doubleDown_fulfillRandomness()
+        public
+        withChip(player, 1000)
+        withApproval(player)
+        readyForPlayerAction(player)
+    {
+        vm.prank(player);
+        evmbj.takeAction(EVMBlackjack.Action.DOUBLE_DOWN);
+
+        (, uint16 previousShoeCount,,,,,) = evmbj.getGame(player);
+
+        evmbj.fulfillRandomness(player, "");
+
+        (
+            EVMBlackjack.State state,
+            uint16 shoeCount,
+            uint8[] memory dealerCards,
+            uint8[] memory playerCards,
+            uint16 betSize,
+            EVMBlackjack.Action lastAction,
+            uint16 insurance
+        ) = evmbj.getGame(player);
+
+        assertEq(state, EVMBlackjack.State.DEALER_ACTION, "State");
+        assertEq(shoeCount, previousShoeCount - 1, "Shoe count");
+        assertNumberOfCards(playerCards, 3, "Player cards"); // one more card
+    }
+
+    /*//////////////////////////////////////////////////////////////
+    //  Player Action -- Hit
+    //////////////////////////////////////////////////////////////*/
+
+    function test_hit() public withChip(player, 1000) withApproval(player) readyForPlayerAction(player) {
+        vm.prank(player);
+        evmbj.takeAction(EVMBlackjack.Action.HIT);
+
+        (
+            EVMBlackjack.State state,
+            uint16 shoeCount,
+            uint8[] memory dealerCards,
+            uint8[] memory playerCards,
+            uint16 betSize,
+            EVMBlackjack.Action lastAction,
+            uint16 insurance
+        ) = evmbj.getGame(player);
+
+        assertEq(state, EVMBlackjack.State.WAITING_FOR_RANDOMNESS, "State");
+        assertEq(lastAction, EVMBlackjack.Action.HIT, "Last action");
+        assertEq(betSize, BETSIZE1, "Bet size"); // no change
+    }
+
+    function test_hit_fulfillRandomness()
+        public
+        withChip(player, 1000)
+        withApproval(player)
+        readyForPlayerAction(player)
+    {
+        vm.prank(player);
+        evmbj.takeAction(EVMBlackjack.Action.HIT);
+
+        (, uint16 previousShoeCount,,,,,) = evmbj.getGame(player);
+
+        evmbj.fulfillRandomness(player, "");
+
+        (
+            EVMBlackjack.State state,
+            uint16 shoeCount,
+            uint8[] memory dealerCards,
+            uint8[] memory playerCards,
+            uint16 betSize,
+            EVMBlackjack.Action lastAction,
+            uint16 insurance
+        ) = evmbj.getGame(player);
+
+        assertEq(state, EVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State");
+        assertEq(shoeCount, previousShoeCount - 1, "Shoe count");
+        assertNumberOfCards(playerCards, 3, "Player cards"); // one more card
+    }
+
+    /*//////////////////////////////////////////////////////////////
+    //  Player Action -- Stand
+    //////////////////////////////////////////////////////////////*/
+
+    function test_stand() public withChip(player, 1000) withApproval(player) readyForPlayerAction(player) {
+        (, uint16 previousShoeCount,,,,,) = evmbj.getGame(player);
+
+        vm.prank(player);
+        evmbj.takeAction(EVMBlackjack.Action.STAND);
+
+        (
+            EVMBlackjack.State state,
+            uint16 shoeCount,
+            uint8[] memory dealerCards,
+            uint8[] memory playerCards,
+            uint16 betSize,
+            EVMBlackjack.Action lastAction,
+            uint16 insurance
+        ) = evmbj.getGame(player);
+
+        assertEq(state, EVMBlackjack.State.DEALER_ACTION, "State");
+        assertEq(lastAction, EVMBlackjack.Action.STAND, "Last action");
+        assertEq(shoeCount, previousShoeCount, "Shoe count"); // no change
+        assertNumberOfCards(playerCards, 2, "Player cards"); // no change
+        assertEq(betSize, BETSIZE1, "Bet size"); // no change
+    }
 
     /*//////////////////////////////////////////////////////////////
     //  Test Helpers
     //////////////////////////////////////////////////////////////*/
 
-    function assertState(address _player, EVMBlackjack.GameState _state) internal {
-        (EVMBlackjack.GameState state,) = evmbj.games(_player);
-        assertEq(uint256(state), uint256(_state), "Game state");
+    function assertState(address _player, EVMBlackjack.State expectedState) internal {
+        (EVMBlackjack.State state,,,,,,) = evmbj.getGame(_player);
+        assertEq(state, expectedState, "State");
     }
 
-    // function assertEq(EVMBlackjack.GameState a, EVMBlackjack.GameState b, string memory reason) internal {
-    //     assertEq(uint256(a), uint256(b), reason);
+    function assertEq(EVMBlackjack.State a, EVMBlackjack.State b, string memory reason) internal {
+        assertEq(uint256(a), uint256(b), reason);
+    }
+
+    function assertEq(EVMBlackjack.Action a, EVMBlackjack.Action b, string memory reason) internal {
+        assertEq(uint256(a), uint256(b), reason);
+    }
+
+    function assertNumberOfCards(uint8[] memory _cards, uint8 expectedNumberOfCards, string memory reason) internal {
+        uint256 numberOfCards;
+        assembly {
+            numberOfCards := mload(add(_cards, 0))
+        }
+        assertEq(numberOfCards, expectedNumberOfCards, reason);
+    }
+
+    function assertChips(uint256 playerChipBalance, uint256 houseChipBalance) internal {
+        assertEq(chip.balanceOf(player), playerChipBalance, "Player CHIP balance");
+        assertEq(chip.balanceOf(address(evmbj)), houseChipBalance, "House CHIP balance");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+    //  Game States OLD
+    //////////////////////////////////////////////////////////////*/
+
+    // // Place Bet
+
+    // function test_placeBet_whenState_readyForBet() public withChip(player, 1000) withApproval(player) {
+    //     vm.prank(player);
+    //     evmbj.placeBet(10);
+
+    //     assertState(player, EVMBlackjack.State.WAITING_FOR_RANDOMNESS);
     // }
 
-    // function assertEq(EVMBlackjack.GameState a, EVMBlackjack.GameState b, string memory reason) internal {
-    //     assertEq(uint256(a), uint256(b), reason);
+    // function testRevert_placeBet_whenState_waitingForRandomness() public {
+    //     // TODO
     // }
 
-    // function assertState(address _player, EVMBlackjack.GameState _state) internal {
-    //     (EVMBlackjack.GameState state,,,) = evmbj.gamez(_player);
-    //     assertEq(state, _state, "Game state");
+    // function testRevert_placeBet_whenState_readyForInsurance() public {
+    //     // TODO
     // }
 
-    // function assertGame(
-    //     address _player,
-    //     EVMBlackjack.GameState _state,
-    //     uint16 _remainingCardsInShoe,
-    //     uint8 _bet,
-    //     bool _waitingForEntropy
-    // ) internal {
-    //     (EVMBlackjack.GameState state, EVMBlackjack.Shoe memory shoe, uint8 bet, bool waitingForEntropy) =
-    //         evmbj.gamez(_player);
+    // function testRevert_placeBet_whenState_readyForPlayerAction() public {
+    //     // TODO
+    // }
 
-    //     assertEq(state, _state, "Game state");
-    //     assertEq(shoe.remainingCardsInShoe, _remainingCardsInShoe, "Shoe count");
-    //     assertEq(bet, _bet, "Player bet");
-    //     if (_waitingForEntropy) {
-    //         assertTrue(waitingForEntropy, "Waiting for entropy");
-    //     } else {
-    //         assertTrue(!waitingForEntropy, "Waiting for entropy");
-    //     }
+    // function testRevert_placeBet_whenState_dealerAction() public {
+    //     // TODO
+    // }
+
+    // // Fulfill Randomness
+
+    // function test_fulfillRandomness_whenState_waitingForRandomness() public withChip(player, 1000) withApproval(player) {
+    //     vm.prank(player);
+    //     evmbj.placeBet(10);
+
+    //     evmbj.fulfillRandomness(player, keccak256("hey"));
+
+    //     assertState(player, EVMBlackjack.State.READY_FOR_INSURANCE);
+    // }
+
+    // function testRevert_fulfillRandomness_whenState_readyForBet() public {
+    //     vm.expectRevert(EVMBlackjack.InvalidStateTransition.selector);
+    //     evmbj.fulfillRandomness(player, keccak256("hey"));
+    // }
+
+    // function testRevert_fulfillRandomness_whenState_readyForInsurance() public {
+    //     // TODO
+    // }
+
+    // function testRevert_fulfillRandomness_whenState_readyForPlayerAction() public {
+    //     // TODO
+    // }
+
+    // function testRevert_fulfillRandomness_whenState_dealerAction() public {
+    //     // TODO
+    // }
+
+    // // Take Insurance / Decline Insurance
+
+    // function test_takeInsurance_whenState_readyForInsurance() public withChip(player, 1000) withApproval(player) {
+    //     vm.prank(player);
+    //     evmbj.placeBet(10);
+
+    //     evmbj.fulfillRandomness(player, keccak256("hey"));
+
+    //     vm.prank(player);
+    //     evmbj.takeInsurance(true);
+
+    //     assertState(player, EVMBlackjack.State.READY_FOR_PLAYER_ACTION);
+    // }
+
+    // // TODO testRevert_takeInsurance_whenDealerDoesNotShowAnAce
+    // // TODO testRevert_declineInsurance_whenDealerDoesNotShowAnAce
+
+    // function testRevert_takeInsurance_whenState_readyForBet() public {
+    //     vm.expectRevert(EVMBlackjack.InvalidStateTransition.selector);
+
+    //     vm.prank(player);
+    //     evmbj.takeInsurance(true);
+    // }
+
+    // function testRevert_takeInsurance_whenState_waitingForRandomness() public withChip(player, 1000) withApproval(player) {
+    //     vm.prank(player);
+    //     evmbj.placeBet(10);
+
+    //     vm.expectRevert(EVMBlackjack.InvalidStateTransition.selector);
+
+    //     vm.prank(player);
+    //     evmbj.takeInsurance(true);
+    // }
+
+    // function testRevert_takeInsurance_whenState_readyForPlayerAction() public withChip(player, 1000) withApproval(player) {
+    //     // TODO
+    // }
+
+    // function testRevert_takeInsurance_whenState_dealerAction() public withChip(player, 1000) withApproval(player) {
+    //     // TODO
+    // }
+
+    // function test_declineInsurance_whenState_readyForInsurance() public withChip(player, 1000) withApproval(player) {
+    //     vm.prank(player);
+    //     evmbj.placeBet(10);
+
+    //     evmbj.fulfillRandomness(player, keccak256("hey"));
+
+    //     vm.prank(player);
+    //     evmbj.takeInsurance(false);
+
+    //     assertState(player, EVMBlackjack.State.READY_FOR_PLAYER_ACTION);
+    // }
+
+    // function testRevert_declineInsurance_whenState_readyForBet() public {
+    //     vm.expectRevert(EVMBlackjack.InvalidStateTransition.selector);
+
+    //     vm.prank(player);
+    //     evmbj.takeInsurance(false);
+    // }
+
+    // function testRevert_declineInsurance_whenState_waitingForRandomness() public withChip(player, 1000) withApproval(player) {
+    //     vm.prank(player);
+    //     evmbj.placeBet(10);
+
+    //     vm.expectRevert(EVMBlackjack.InvalidStateTransition.selector);
+
+    //     vm.prank(player);
+    //     evmbj.takeInsurance(false);
+    // }
+
+    // function testRevert_declineInsurance_whenState_readyForPlayerAction() public withChip(player, 1000) withApproval(player) {
+    //     // TODO
+    // }
+
+    // function testRevert_declineInsurance_whenState_dealerAction() public withChip(player, 1000) withApproval(player) {
+    //     // TODO
+    // }
+
+    // // Split Aces
+
+    // function test_splitAces_whenState_readyForPlayerAction_andPlayerHasAA() public withChip(player, 1000) withApproval(player) {
+    //     vm.prank(player);
+    //     evmbj.placeBet(10);
+
+    //     evmbj.fulfillRandomness(player, "");
+    //     // evmbj.cheatInitialPlayerHand(player, 0, EVMBlackjack.Card.ACE_SPADES, EVMBlackjack.Card.ACE_CLUBS);
+
+    //     vm.prank(player);
+    //     //
     // }
 }
