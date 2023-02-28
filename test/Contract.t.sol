@@ -10,8 +10,7 @@ import "src/Contract.sol";
 contract TestContract is Test {
     Contract c;
 
-    function setUp() public {
-    }
+    function setUp() public {}
 
     function testBar() public {
         assertEq(uint256(1), uint256(1), "ok");

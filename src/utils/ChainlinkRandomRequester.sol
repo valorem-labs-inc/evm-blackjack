@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT 
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
 import "chainlink/interfaces/VRFCoordinatorV2Interface.sol";
@@ -8,7 +8,6 @@ import "chainlink/ConfirmedOwner.sol";
 import "./RandomRequester.sol";
 
 contract ChainlinkRandomRequester is VRFConsumerBaseV2, ConfirmedOwner, RandomRequester {
-
     VRFCoordinatorV2Interface COORDINATOR;
 
     // Your subscription ID.
@@ -32,21 +31,13 @@ contract ChainlinkRandomRequester is VRFConsumerBaseV2, ConfirmedOwner, RandomRe
 
     uint16 requestConfirmations;
 
-    constructor(
-        address _coordinator,
-        uint64 _subscriptionId,
-        bytes32 _keyHash
-    )
+    constructor(address _coordinator, uint64 _subscriptionId, bytes32 _keyHash)
         VRFConsumerBaseV2(_coordinator)
         ConfirmedOwner(msg.sender)
     {
-        COORDINATOR = VRFCoordinatorV2Interface(
-            _coordinator
-        );
+        COORDINATOR = VRFCoordinatorV2Interface(_coordinator);
 
-        (uint16 minimumRequestConfirmations,
-        ,
-        ) = COORDINATOR.getRequestConfig();
+        (uint16 minimumRequestConfirmations,,) = COORDINATOR.getRequestConfig();
 
         requestConfirmations = minimumRequestConfirmations;
 
@@ -55,41 +46,26 @@ contract ChainlinkRandomRequester is VRFConsumerBaseV2, ConfirmedOwner, RandomRe
     }
 
     // Assumes the subscription is funded sufficiently.
-    function requestRandom(
-        uint16 numWords,
-        function (uint256, uint256[] memory) internal returns (uint256) f)
+    function requestRandom(uint16 numWords, function (uint256, uint256[] memory) internal returns (uint256) f)
         internal
         override
         onlyOwner
         returns (uint256 requestId)
     {
         // Will revert if subscription is not set and funded.
-        requestId = COORDINATOR.requestRandomWords(
-            keyHash,
-            subscriptionId,
-            requestConfirmations,
-            callbackGasLimit,
-            numWords
-        );
-        requests[requestId] = Request({
-            pending: true,
-            fp: f
-        });
+        requestId =
+            COORDINATOR.requestRandomWords(keyHash, subscriptionId, requestConfirmations, callbackGasLimit, numWords);
+        requests[requestId] = Request({pending: true, fp: f});
         lastRequestId = requestId;
         emit RequestSent(requestId, 1);
         return requestId;
     }
 
-    function fulfillRandomWords(
-        uint256 requestId,
-        uint256[] memory randomWords
-    ) internal override {
+    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
         fulfillRandom(requestId, randomWords);
     }
 
-    function getRequestStatus(
-        uint256 _requestId
-    ) external view returns (bool) {
+    function getRequestStatus(uint256 _requestId) external view returns (bool) {
         require(requests[_requestId].pending, "request not found");
         Request memory request = requests[_requestId];
         return (request.pending);

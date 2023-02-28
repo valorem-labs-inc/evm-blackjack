@@ -5,9 +5,11 @@ import "forge-std/Test.sol";
 import "src/utils/ChainlinkRandomRequester.sol";
 
 contract RevertingRandomRequester is RandomRequester {
-    function requestRandom(
-        uint16,
-        function (uint256, uint256[] memory) internal returns (uint256)) internal override pure returns (uint256)
+    function requestRandom(uint16, function (uint256, uint256[] memory) internal returns (uint256))
+        internal
+        pure
+        override
+        returns (uint256)
     {
         revert("Random revert");
     }
@@ -15,24 +17,11 @@ contract RevertingRandomRequester is RandomRequester {
 
 // necessary for testing since forge does not support mockCallRevert yet
 contract RevertingCoordinator is VRFCoordinatorV2Interface {
-    function getRequestConfig()
-    external
-    pure 
-    returns (
-      uint16,
-      uint32,
-      bytes32[] memory
-    ) {
+    function getRequestConfig() external pure returns (uint16, uint32, bytes32[] memory) {
         revert("getRequestConfig");
     }
 
-    function requestRandomWords(
-        bytes32,
-        uint64,
-        uint16,
-        uint32,
-        uint32 
-    ) external pure returns (uint256) {
+    function requestRandomWords(bytes32, uint64, uint16, uint32, uint32) external pure returns (uint256) {
         revert("requestRandomWords");
     }
 
@@ -40,15 +29,7 @@ contract RevertingCoordinator is VRFCoordinatorV2Interface {
         revert("createSubscription");
     }
 
-    function getSubscription(uint64)
-    external
-    pure 
-    returns (
-        uint96,
-        uint64,
-        address,
-        address[] memory
-    ) {
+    function getSubscription(uint64) external pure returns (uint96, uint64, address, address[] memory) {
         revert("getSubscription");
     }
 
@@ -72,7 +53,7 @@ contract RevertingCoordinator is VRFCoordinatorV2Interface {
         revert("cancelSubscription");
     }
 
-     function pendingRequestExists(uint64) external pure returns (bool) {
+    function pendingRequestExists(uint64) external pure returns (bool) {
         revert("pendingRequestExists");
     }
 }
@@ -86,7 +67,6 @@ contract ChainlinkRandomRequesterTest is Test {
     function setUp() public {
         coordinatorAddress = address(0xFFFF);
         vrfc = VRFCoordinatorV2Interface(coordinatorAddress);
-
     }
 
     function testChainlinkRandomRequesterCtor() public {

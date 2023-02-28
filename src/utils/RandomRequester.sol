@@ -2,32 +2,32 @@
 pragma solidity ^0.8.13;
 
 abstract contract RandomRequester {
-
     event RequestSent(uint256 requestId, uint32 numWords);
     event RequestFulfilled(uint256 requestId, uint256[] randomWords);
 
     struct Request {
-        bool pending; 
+        bool pending;
         // TODO: other state for status checking? e.g. Enqueue time?
         // function pointer
         function (uint256, uint256[] memory) internal returns (uint256) fp;
     }
 
-    mapping(uint256 => Request) requests; 
+    mapping(uint256 => Request) requests;
 
     /**
      * @notice Requests a random variable from a source dictated by the concrete implementation
      * @notice of this adapter. Accepts a callback function on this contract to provide with the
-     * @notice returned random value. The implementor is responsible for storing a Request in the 
+     * @notice returned random value. The implementor is responsible for storing a Request in the
      * @notice requests map.
      * @param numWords The number of uint256 words to request.
-     * @param f The function pointer to the callback function. Accepts two uint arguments for 
+     * @param f The function pointer to the callback function. Accepts two uint arguments for
      * the request id, and the fulfilled randomness request.
      * @return The request ID associated with this request for randomness
      */
-    function requestRandom(
-        uint16 numWords,
-        function (uint256, uint256[] memory) internal returns (uint256) f) internal virtual returns (uint256);
+    function requestRandom(uint16 numWords, function (uint256, uint256[] memory) internal returns (uint256) f)
+        internal
+        virtual
+        returns (uint256);
 
     /**
      * @notice A function called by the concrete implementation of this abstract contract, after
