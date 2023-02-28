@@ -1,3 +1,6 @@
 cache/
 out/
 .env
+node_modules/
+yarn.lock
+package-lock.json
