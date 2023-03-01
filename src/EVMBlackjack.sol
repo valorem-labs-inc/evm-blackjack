@@ -9,7 +9,7 @@ contract EVMBlackjack {
     //////////////////////////////////////////////////////////////*/
 
     event BetPlaced(address indexed player, uint16 betSize);
-    event PlayerCardDealt(address indexed player, uint8 card);
+    event PlayerCardDealt(address indexed player, uint8 card, uint8 handIndex);
     event DealerCardDealt(address indexed player, uint8 card);
     event InsuranceTaken(address indexed player, bool take);
     event PlayerActionTaken(address indexed player, Action action);
@@ -19,7 +19,7 @@ contract EVMBlackjack {
 
     /*//////////////////////////////////////////////////////////////
     //  Errors
-    //////////////////////////////////////////////////////////////*/    
+    //////////////////////////////////////////////////////////////*/
 
     error InvalidStateTransition();
     error InvalidBetSize(uint16 betSize);
@@ -165,7 +165,7 @@ contract EVMBlackjack {
             game.state = State.DEALER_ACTION;
         } else if (game.lastAction == Action.HIT) {
             // Player's last action was hit, so we handle and go to Ready for Player Action.
-            dealPlayerCard(_player, 15, 0);
+            dealPlayerCard(_player, 25, 0);
             game.shoeCount--;
             game.state = State.READY_FOR_PLAYER_ACTION;
         } else {
@@ -175,10 +175,14 @@ contract EVMBlackjack {
 
     function dealPlayerCard(address _player, uint8 _card, uint8 _handIndex) internal {
         games[_player].playerCards.push(_card);
+
+        emit PlayerCardDealt(_player, _card, _handIndex);
     }
 
     function dealDealerCard(address _player, uint8 _card) internal {
         games[_player].dealerCards.push(_card);
+
+        emit DealerCardDealt(_player, _card);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -202,6 +206,8 @@ contract EVMBlackjack {
 
         // Request randomness
         requestRandomness(msg.sender);
+
+        emit BetPlaced(msg.sender, betSize);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -227,6 +233,8 @@ contract EVMBlackjack {
 
         // Update game state
         game.state = State.READY_FOR_PLAYER_ACTION;
+
+        emit InsuranceTaken(msg.sender, _take);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -253,6 +261,8 @@ contract EVMBlackjack {
 
             // Transfer CHIP
             chip.transferFrom(msg.sender, address(this), betSize);
+
+            // QUESTION should we emit an event like BetIncreased ?
         } else if (action == Action.HIT) {
             game.state = State.WAITING_FOR_RANDOMNESS;
             game.lastAction = Action.HIT;
@@ -262,6 +272,8 @@ contract EVMBlackjack {
         } else {
             //
         }
+
+        emit PlayerActionTaken(msg.sender, action);
     }
 
     /*//////////////////////////////////////////////////////////////
