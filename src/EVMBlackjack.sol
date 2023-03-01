@@ -38,6 +38,7 @@ contract EVMBlackjack {
     }
 
     enum Action {
+        NO_ACTION,
         SPLIT_ACES,
         SPLIT,
         DOUBLE_DOWN,
@@ -49,18 +50,20 @@ contract EVMBlackjack {
         State state;
         uint16 shoeCount;
         uint8[] dealerCards;
-        // Hand[] playerHands;
-        uint8[] playerCards;
-        uint16 betSize;
-        Action lastAction;
         uint16 insurance;
+        Action lastAction;
+        uint8 totalPlayerHands;
+        uint8 activePlayerHand;
+        Hand[] playerHands;
     }
 
-    // struct Hand {
-    //     uint8[] cards;
-    //     uint16 betSize;
-    //     Action lastAction;
-    // }
+    // uint8[] playerCards;
+    // uint16 betSize;
+
+    struct Hand {
+        uint8[] cards;
+        uint16 betSize;
+    }
 
     /*//////////////////////////////////////////////////////////////
     //  Private Variables -- State
@@ -91,29 +94,8 @@ contract EVMBlackjack {
     //  Views
     //////////////////////////////////////////////////////////////*/
 
-    function getGame(address _player)
-        public
-        view
-        returns (
-            State state,
-            uint16 shoeCount,
-            uint8[] memory dealerCards,
-            uint8[] memory playerCards,
-            uint16 betSize,
-            Action lastAction,
-            uint16 insurance
-        )
-    {
-        Game memory game = games[_player];
-        return (
-            game.state,
-            game.shoeCount,
-            game.dealerCards,
-            game.playerCards,
-            game.betSize,
-            game.lastAction,
-            game.insurance
-        );
+    function getGame(address _player) public view returns (Game memory game) {
+        return games[_player];
     }
 
     function convertCardToValue(uint8 card) public pure returns (uint8) {
@@ -140,32 +122,71 @@ contract EVMBlackjack {
             // We can't fulfill randomness if not waiting for randomness.
             revert InvalidStateTransition();
         } else if (game.shoeCount == SHOE_STARTING_COUNT) {
+            // seed
+            // pair of aces -- player gets AA (13, 26)
+            // pair         -- player gets 77 (6, 19)
+            // other        -- player gets 54 (4, 16)
+
+            // ace          -- dealer gets A  (0)
+            // other        -- dealer gets 2  (1)
+
             // We are at initial deal state, so
-            // Deal cards,
-            dealPlayerCard(_player, 13, 0);
+            // Deal player card 1,
+            if (_randomness == keccak256("pair of aces")) {
+                // TEMP
+                dealPlayerCard(_player, 13, 0);
+            } else if (_randomness == keccak256("pair")) {
+                dealPlayerCard(_player, 6, 0);
+            } else {
+                dealPlayerCard(_player, 4, 0);
+            }
+
+            // Deal dealer card 1,
             if (_randomness == keccak256("ace")) {
+                // TEMP
                 dealDealerCard(_player, 0);
                 game.state = State.READY_FOR_INSURANCE;
             } else {
                 dealDealerCard(_player, 1);
                 game.state = State.READY_FOR_PLAYER_ACTION;
             }
-            dealPlayerCard(_player, 14, 0);
+
+            // Deal player card 2,
+            if (_randomness == keccak256("pair of aces")) {
+                // TEMP
+                dealPlayerCard(_player, 26, 0);
+            } else if (_randomness == keccak256("pair")) {
+                dealPlayerCard(_player, 19, 0);
+            } else {
+                dealPlayerCard(_player, 16, 0);
+            }
 
             // Update shoe.
             game.shoeCount -= 3;
         } else if (game.lastAction == Action.SPLIT_ACES) {
             // Player's last action was split aces, so we handle and go to Dealer Action.
+            dealPlayerCard(_player, 50, 0);
+            dealPlayerCard(_player, 51, 0);
+
+            game.shoeCount -= 2;
+            game.state = State.DEALER_ACTION;
         } else if (game.lastAction == Action.SPLIT) {
             // Player's last action was split, so we handle and go to Ready for Player Action.
+            dealPlayerCard(_player, 50, 0);
+            dealPlayerCard(_player, 51, 0);
+
+            game.shoeCount -= 2;
+            game.state = State.READY_FOR_PLAYER_ACTION;
         } else if (game.lastAction == Action.DOUBLE_DOWN) {
             // Player's last action was double down, so we handle and go to Dealer Action.
             dealPlayerCard(_player, 15, 0);
+
             game.shoeCount--;
             game.state = State.DEALER_ACTION;
         } else if (game.lastAction == Action.HIT) {
             // Player's last action was hit, so we handle and go to Ready for Player Action.
             dealPlayerCard(_player, 25, 0);
+
             game.shoeCount--;
             game.state = State.READY_FOR_PLAYER_ACTION;
         } else {
@@ -174,7 +195,7 @@ contract EVMBlackjack {
     }
 
     function dealPlayerCard(address _player, uint8 _card, uint8 _handIndex) internal {
-        games[_player].playerCards.push(_card);
+        games[_player].playerHands[_handIndex].cards.push(_card);
 
         emit PlayerCardDealt(_player, _card, _handIndex);
     }
@@ -189,25 +210,25 @@ contract EVMBlackjack {
     //  Place Bet
     //////////////////////////////////////////////////////////////*/
 
-    function placeBet(uint16 betSize) public {
+    function placeBet(uint16 _betSize) public {
         //
-        if (betSize < MINIMUM_BET_SIZE || betSize > MAXIMUM_BET_SIZE) {
-            revert InvalidBetSize(betSize);
+        if (_betSize < MINIMUM_BET_SIZE || _betSize > MAXIMUM_BET_SIZE) {
+            revert InvalidBetSize(_betSize);
         }
 
         // Transfer CHIP
-        chip.transferFrom(msg.sender, address(this), betSize);
+        chip.transferFrom(msg.sender, address(this), _betSize);
 
         // Update game
         Game storage game = games[msg.sender];
         game.state = State.WAITING_FOR_RANDOMNESS;
         game.shoeCount = (game.shoeCount == 0) ? SHOE_STARTING_COUNT : game.shoeCount;
-        game.betSize = betSize;
+        game.playerHands.push(Hand({cards: new uint8[](0), betSize: _betSize}));
 
         // Request randomness
         requestRandomness(msg.sender);
 
-        emit BetPlaced(msg.sender, betSize);
+        emit BetPlaced(msg.sender, _betSize);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -222,7 +243,7 @@ contract EVMBlackjack {
         }
 
         if (_take) {
-            uint16 insuranceBet = game.betSize / 2;
+            uint16 insuranceBet = game.playerHands[0].betSize / 2;
 
             // Store side bet
             game.insurance = insuranceBet;
@@ -250,20 +271,38 @@ contract EVMBlackjack {
 
         // Handle player action.
         if (action == Action.SPLIT_ACES) {
-            //
+            if (!isAce(game.playerHands[0].cards[0]) || !isAce(game.playerHands[0].cards[1])) {
+                revert InvalidStateTransition();
+            }
+
+            // TODO instantiate new hand and request randomness
+
+            game.state = State.WAITING_FOR_RANDOMNESS;
+            game.lastAction = Action.SPLIT_ACES;
         } else if (action == Action.SPLIT) {
-            //
+            if (!isPair(game.playerHands[0].cards[0], game.playerHands[0].cards[1])) {
+                revert InvalidStateTransition();
+            }
+
+            // TODO instantiate new hand and request randomness
+
+            game.state = State.WAITING_FOR_RANDOMNESS;
+            game.lastAction = Action.SPLIT;
         } else if (action == Action.DOUBLE_DOWN) {
+            // TODO request randomness
+
             game.state = State.WAITING_FOR_RANDOMNESS;
             game.lastAction = Action.DOUBLE_DOWN;
-            uint16 betSize = game.betSize;
-            game.betSize *= 2;
+            uint16 betSize = game.playerHands[0].betSize;
+            game.playerHands[0].betSize *= 2;
 
             // Transfer CHIP
             chip.transferFrom(msg.sender, address(this), betSize);
 
             // QUESTION should we emit an event like BetIncreased ?
         } else if (action == Action.HIT) {
+            // TODO request randomness
+
             game.state = State.WAITING_FOR_RANDOMNESS;
             game.lastAction = Action.HIT;
         } else if (action == Action.STAND) {
@@ -274,6 +313,14 @@ contract EVMBlackjack {
         }
 
         emit PlayerActionTaken(msg.sender, action);
+    }
+
+    function isAce(uint8 _card) internal returns (bool) {
+        return _card % 13 == 0;
+    }
+
+    function isPair(uint8 _card1, uint8 _card2) internal returns (bool) {
+        return (_card1 % 13) == (_card2 % 13);
     }
 
     /*//////////////////////////////////////////////////////////////
