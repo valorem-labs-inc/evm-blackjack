@@ -58,12 +58,11 @@ contract RevertingCoordinator is VRFCoordinatorV2Interface {
     }
 }
 
-
 contract TestRandomRequester is ChainlinkRandomRequester {
     event LogRand(uint256 requestId, uint256[] randWords);
 
-    constructor(address _coordinator, uint64 _subscriptionId, bytes32 _keyHash) 
-        ChainlinkRandomRequester(_coordinator, _subscriptionId, _keyHash) 
+    constructor(address _coordinator, uint64 _subscriptionId, bytes32 _keyHash)
+        ChainlinkRandomRequester(_coordinator, _subscriptionId, _keyHash)
     {}
 
     function requestRandomEmission(uint16 numRandom) public returns (uint256) {
@@ -86,7 +85,7 @@ contract ChainlinkRandomRequesterTest is Test {
     uint32 chainlinkSubscriptionId;
     TestRandomRequester t;
 
-    modifier withInit {
+    modifier withInit() {
         vm.mockCall(
             coordinatorAddress,
             abi.encodeWithSelector(VRFCoordinatorV2Interface.getRequestConfig.selector),
@@ -121,7 +120,7 @@ contract ChainlinkRandomRequesterTest is Test {
     function testRequestReceive() public withInit {
         uint256[] memory randVal = new uint256[](1);
         randVal[0] = uint256(0xDEADBEEF);
-        // enqueue a request for a single random word 
+        // enqueue a request for a single random word
         uint256 mockRequestId = uint256(0x1234);
         vm.mockCall(
             coordinatorAddress,
