@@ -29,7 +29,7 @@ contract EVMBlackjackTest is Test {
     function setUp() public {
         chip = new Chip();
         evmbj = new EVMBlackjack(chip);
-        chip.mint(address(evmbj), HOUSE_STARTING_BALANCE);
+        chip.tempHouseMint(address(evmbj));
 
         vm.deal(player, 10 ether);
         vm.deal(player2, 10 ether);
@@ -38,8 +38,9 @@ contract EVMBlackjackTest is Test {
         vm.deal(player5, 10 ether);
     }
 
-    modifier withChip(address _player, uint256 _amount) {
-        chip.mint(_player, _amount);
+    modifier withChips(address _player) {
+        vm.prank(_player);
+        chip.claim();
         _;
     }
 
@@ -50,9 +51,9 @@ contract EVMBlackjackTest is Test {
     }
 
     modifier readyForPlayerAction(address _player) {
-        vm.prank(player);
+        vm.prank(_player);
         evmbj.placeBet(BETSIZE1);
-        evmbj.fulfillRandomness(player, "");
+        evmbj.fulfillRandomness(_player, "");
         _;
     }
 
@@ -77,7 +78,7 @@ contract EVMBlackjackTest is Test {
         assertState(player, EVMBlackjack.State.READY_FOR_BET);
     }
 
-    function test_placeBet() public withChip(player, PLAYER_STARTING_BALANCE) {
+    function test_placeBet() public withChips(player) {
         vm.startPrank(player);
         chip.approve(address(evmbj), type(uint256).max);
         evmbj.placeBet(BETSIZE1);
@@ -100,7 +101,7 @@ contract EVMBlackjackTest is Test {
         assertChips(PLAYER_STARTING_BALANCE - BETSIZE1, HOUSE_STARTING_BALANCE + BETSIZE1);
     }
 
-    function testEvent_placeBet() public withChip(player, PLAYER_STARTING_BALANCE) withApproval(player) {
+    function testEvent_placeBet() public withChips(player) withApproval(player) {
         vm.expectEmit(true, true, true, true);
         emit BetPlaced(player, BETSIZE1);
 
@@ -129,11 +130,7 @@ contract EVMBlackjackTest is Test {
         evmbj.placeBet(BETSIZE5 + 1);
     }
 
-    function test_placeBet_andFulfillRandomness_whenDealerShowsAce()
-        public
-        withChip(player, PLAYER_STARTING_BALANCE)
-        withApproval(player)
-    {
+    function test_placeBet_andFulfillRandomness_whenDealerShowsAce() public withChips(player) withApproval(player) {
         vm.prank(player);
         evmbj.placeBet(BETSIZE1);
 
@@ -156,7 +153,7 @@ contract EVMBlackjackTest is Test {
 
     function test_placeBet_andFulfillRandomness_whenDealerDoesNotShowAce()
         public
-        withChip(player, PLAYER_STARTING_BALANCE)
+        withChips(player)
         withApproval(player)
     {
         vm.prank(player);
@@ -179,11 +176,7 @@ contract EVMBlackjackTest is Test {
         assertNumberOfCards(playerCards, 2, "Player cards");
     }
 
-    function testEvent_placeBet_andFulfillRandomness()
-        public
-        withChip(player, PLAYER_STARTING_BALANCE)
-        withApproval(player)
-    {
+    function testEvent_placeBet_andFulfillRandomness() public withChips(player) withApproval(player) {
         vm.prank(player);
         evmbj.placeBet(BETSIZE1);
 
@@ -202,7 +195,7 @@ contract EVMBlackjackTest is Test {
     //  Take / Decline Insurance
     //////////////////////////////////////////////////////////////*/
 
-    function test_takeInsurance() public withChip(player, PLAYER_STARTING_BALANCE) withApproval(player) {
+    function test_takeInsurance() public withChips(player) withApproval(player) {
         vm.prank(player);
         evmbj.placeBet(BETSIZE1);
         evmbj.fulfillRandomness(player, keccak256("ace"));
@@ -227,7 +220,7 @@ contract EVMBlackjackTest is Test {
         assertChips(PLAYER_STARTING_BALANCE - BETSIZE1 - insuranceBet, HOUSE_STARTING_BALANCE + BETSIZE1 + insuranceBet);
     }
 
-    function testEvent_takeInsurance() public withChip(player, PLAYER_STARTING_BALANCE) withApproval(player) {
+    function testEvent_takeInsurance() public withChips(player) withApproval(player) {
         vm.prank(player);
         evmbj.placeBet(BETSIZE1);
         evmbj.fulfillRandomness(player, keccak256("ace"));
@@ -239,7 +232,7 @@ contract EVMBlackjackTest is Test {
         evmbj.takeInsurance(true);
     }
 
-    function test_declineInsurance() public withChip(player, PLAYER_STARTING_BALANCE) withApproval(player) {
+    function test_declineInsurance() public withChips(player) withApproval(player) {
         vm.prank(player);
         evmbj.placeBet(BETSIZE1);
         evmbj.fulfillRandomness(player, keccak256("ace"));
@@ -262,7 +255,7 @@ contract EVMBlackjackTest is Test {
         assertChips(PLAYER_STARTING_BALANCE - BETSIZE1, HOUSE_STARTING_BALANCE + BETSIZE1);
     }
 
-    function testEvent_declineInsurance() public withChip(player, PLAYER_STARTING_BALANCE) withApproval(player) {
+    function testEvent_declineInsurance() public withChips(player) withApproval(player) {
         vm.prank(player);
         evmbj.placeBet(BETSIZE1);
         evmbj.fulfillRandomness(player, keccak256("ace"));
@@ -290,12 +283,7 @@ contract EVMBlackjackTest is Test {
     //  Player Action -- Double Down
     //////////////////////////////////////////////////////////////*/
 
-    function test_doubleDown()
-        public
-        withChip(player, PLAYER_STARTING_BALANCE)
-        withApproval(player)
-        readyForPlayerAction(player)
-    {
+    function test_doubleDown() public withChips(player) withApproval(player) readyForPlayerAction(player) {
         vm.prank(player);
         evmbj.takeAction(EVMBlackjack.Action.DOUBLE_DOWN);
 
@@ -317,12 +305,7 @@ contract EVMBlackjackTest is Test {
         assertChips(PLAYER_STARTING_BALANCE - doubleDownBet, HOUSE_STARTING_BALANCE + doubleDownBet);
     }
 
-    function testEvent_doubleDown()
-        public
-        withChip(player, PLAYER_STARTING_BALANCE)
-        withApproval(player)
-        readyForPlayerAction(player)
-    {
+    function testEvent_doubleDown() public withChips(player) withApproval(player) readyForPlayerAction(player) {
         vm.expectEmit(true, true, true, true);
         emit PlayerActionTaken(player, EVMBlackjack.Action.DOUBLE_DOWN);
 
@@ -332,7 +315,7 @@ contract EVMBlackjackTest is Test {
 
     function test_doubleDown_andFulfillRandomness()
         public
-        withChip(player, PLAYER_STARTING_BALANCE)
+        withChips(player)
         withApproval(player)
         readyForPlayerAction(player)
     {
@@ -360,7 +343,7 @@ contract EVMBlackjackTest is Test {
 
     function testEvent_doubleDown_andFulfillRandomness()
         public
-        withChip(player, PLAYER_STARTING_BALANCE)
+        withChips(player)
         withApproval(player)
         readyForPlayerAction(player)
     {
@@ -378,12 +361,7 @@ contract EVMBlackjackTest is Test {
     //  Player Action -- Hit
     //////////////////////////////////////////////////////////////*/
 
-    function test_hit()
-        public
-        withChip(player, PLAYER_STARTING_BALANCE)
-        withApproval(player)
-        readyForPlayerAction(player)
-    {
+    function test_hit() public withChips(player) withApproval(player) readyForPlayerAction(player) {
         vm.prank(player);
         evmbj.takeAction(EVMBlackjack.Action.HIT);
 
@@ -402,12 +380,7 @@ contract EVMBlackjackTest is Test {
         assertEq(betSize, BETSIZE1, "Bet size"); // no change
     }
 
-    function testEvent_hit()
-        public
-        withChip(player, PLAYER_STARTING_BALANCE)
-        withApproval(player)
-        readyForPlayerAction(player)
-    {
+    function testEvent_hit() public withChips(player) withApproval(player) readyForPlayerAction(player) {
         vm.expectEmit(true, true, true, true);
         emit PlayerActionTaken(player, EVMBlackjack.Action.HIT);
 
@@ -417,7 +390,7 @@ contract EVMBlackjackTest is Test {
 
     function test_hit_andFulfillRandomness()
         public
-        withChip(player, PLAYER_STARTING_BALANCE)
+        withChips(player)
         withApproval(player)
         readyForPlayerAction(player)
     {
@@ -445,7 +418,7 @@ contract EVMBlackjackTest is Test {
 
     function testEvent_hit_andFulfillRandomness()
         public
-        withChip(player, PLAYER_STARTING_BALANCE)
+        withChips(player)
         withApproval(player)
         readyForPlayerAction(player)
     {
@@ -463,12 +436,7 @@ contract EVMBlackjackTest is Test {
     //  Player Action -- Stand
     //////////////////////////////////////////////////////////////*/
 
-    function test_stand()
-        public
-        withChip(player, PLAYER_STARTING_BALANCE)
-        withApproval(player)
-        readyForPlayerAction(player)
-    {
+    function test_stand() public withChips(player) withApproval(player) readyForPlayerAction(player) {
         (, uint16 previousShoeCount,,,,,) = evmbj.getGame(player);
 
         vm.prank(player);
@@ -491,12 +459,7 @@ contract EVMBlackjackTest is Test {
         assertEq(betSize, BETSIZE1, "Bet size"); // no change
     }
 
-    function testEvent_stand()
-        public
-        withChip(player, PLAYER_STARTING_BALANCE)
-        withApproval(player)
-        readyForPlayerAction(player)
-    {
+    function testEvent_stand() public withChips(player) withApproval(player) readyForPlayerAction(player) {
         vm.expectEmit(true, true, true, true);
         emit PlayerActionTaken(player, EVMBlackjack.Action.STAND);
 
@@ -553,7 +516,7 @@ contract EVMBlackjackTest is Test {
 
     // // Place Bet
 
-    // function test_placeBet_whenState_readyForBet() public withChip(player, PLAYER_STARTING_BALANCE) withApproval(player) {
+    // function test_placeBet_whenState_readyForBet() public withChips(player) withApproval(player) {
     //     vm.prank(player);
     //     evmbj.placeBet(10);
 
@@ -578,7 +541,7 @@ contract EVMBlackjackTest is Test {
 
     // // Fulfill Randomness
 
-    // function test_fulfillRandomness_whenState_waitingForRandomness() public withChip(player, PLAYER_STARTING_BALANCE) withApproval(player) {
+    // function test_fulfillRandomness_whenState_waitingForRandomness() public withChips(player) withApproval(player) {
     //     vm.prank(player);
     //     evmbj.placeBet(10);
 
@@ -606,7 +569,7 @@ contract EVMBlackjackTest is Test {
 
     // // Take Insurance / Decline Insurance
 
-    // function test_takeInsurance_whenState_readyForInsurance() public withChip(player, PLAYER_STARTING_BALANCE) withApproval(player) {
+    // function test_takeInsurance_whenState_readyForInsurance() public withChips(player) withApproval(player) {
     //     vm.prank(player);
     //     evmbj.placeBet(10);
 
@@ -628,7 +591,7 @@ contract EVMBlackjackTest is Test {
     //     evmbj.takeInsurance(true);
     // }
 
-    // function testRevert_takeInsurance_whenState_waitingForRandomness() public withChip(player, PLAYER_STARTING_BALANCE) withApproval(player) {
+    // function testRevert_takeInsurance_whenState_waitingForRandomness() public withChips(player) withApproval(player) {
     //     vm.prank(player);
     //     evmbj.placeBet(10);
 
@@ -638,15 +601,15 @@ contract EVMBlackjackTest is Test {
     //     evmbj.takeInsurance(true);
     // }
 
-    // function testRevert_takeInsurance_whenState_readyForPlayerAction() public withChip(player, PLAYER_STARTING_BALANCE) withApproval(player) {
+    // function testRevert_takeInsurance_whenState_readyForPlayerAction() public withChips(player) withApproval(player) {
     //     // TODO
     // }
 
-    // function testRevert_takeInsurance_whenState_dealerAction() public withChip(player, PLAYER_STARTING_BALANCE) withApproval(player) {
+    // function testRevert_takeInsurance_whenState_dealerAction() public withChips(player) withApproval(player) {
     //     // TODO
     // }
 
-    // function test_declineInsurance_whenState_readyForInsurance() public withChip(player, PLAYER_STARTING_BALANCE) withApproval(player) {
+    // function test_declineInsurance_whenState_readyForInsurance() public withChips(player) withApproval(player) {
     //     vm.prank(player);
     //     evmbj.placeBet(10);
 
@@ -665,7 +628,7 @@ contract EVMBlackjackTest is Test {
     //     evmbj.takeInsurance(false);
     // }
 
-    // function testRevert_declineInsurance_whenState_waitingForRandomness() public withChip(player, PLAYER_STARTING_BALANCE) withApproval(player) {
+    // function testRevert_declineInsurance_whenState_waitingForRandomness() public withChips(player) withApproval(player) {
     //     vm.prank(player);
     //     evmbj.placeBet(10);
 
@@ -675,17 +638,17 @@ contract EVMBlackjackTest is Test {
     //     evmbj.takeInsurance(false);
     // }
 
-    // function testRevert_declineInsurance_whenState_readyForPlayerAction() public withChip(player, PLAYER_STARTING_BALANCE) withApproval(player) {
+    // function testRevert_declineInsurance_whenState_readyForPlayerAction() public withChips(player) withApproval(player) {
     //     // TODO
     // }
 
-    // function testRevert_declineInsurance_whenState_dealerAction() public withChip(player, PLAYER_STARTING_BALANCE) withApproval(player) {
+    // function testRevert_declineInsurance_whenState_dealerAction() public withChips(player) withApproval(player) {
     //     // TODO
     // }
 
     // // Split Aces
 
-    // function test_splitAces_whenState_readyForPlayerAction_andPlayerHasAA() public withChip(player, PLAYER_STARTING_BALANCE) withApproval(player) {
+    // function test_splitAces_whenState_readyForPlayerAction_andPlayerHasAA() public withChips(player) withApproval(player) {
     //     vm.prank(player);
     //     evmbj.placeBet(10);
 
