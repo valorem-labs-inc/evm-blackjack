@@ -4,8 +4,9 @@ pragma solidity 0.8.16;
 import "forge-std/Test.sol";
 
 import {Chip} from "../src/Chip.sol";
-import {EVMBlackjack} from "../src/EVMBlackjack.sol";
+import "../src/EVMBlackjack.sol";
 
+/// @title EVM Blackjack Protocol tests
 contract EVMBlackjackTest is Test {
     Chip internal chip;
     EVMBlackjack internal evmbj;
@@ -16,15 +17,15 @@ contract EVMBlackjackTest is Test {
     address internal immutable player4 = makeAddr("player4");
     address internal immutable player5 = makeAddr("player5");
 
-    uint256 internal constant HOUSE_STARTING_BALANCE = 1_000_000;
-    uint256 internal constant PLAYER_STARTING_BALANCE = 1_000;
+    uint256 internal constant HOUSE_STARTING_BALANCE = 1_000_000 ether;
+    uint256 internal constant PLAYER_STARTING_BALANCE = 1_000 ether;
     uint16 internal constant SHOE_STARTING_COUNT = 52 * 6;
 
-    uint16 internal constant BETSIZE1 = 10;
-    uint16 internal constant BETSIZE2 = 25;
-    uint16 internal constant BETSIZE3 = 50;
-    uint16 internal constant BETSIZE4 = 75;
-    uint16 internal constant BETSIZE5 = 100;
+    uint256 internal constant BETSIZE1 = 10 ether;
+    uint256 internal constant BETSIZE2 = 25 ether;
+    uint256 internal constant BETSIZE3 = 50 ether;
+    uint256 internal constant BETSIZE4 = 75 ether;
+    uint256 internal constant BETSIZE5 = 100 ether;
 
     function setUp() public {
         chip = new Chip();
@@ -75,7 +76,7 @@ contract EVMBlackjackTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_initialState() public {
-        assertState(player, EVMBlackjack.State.READY_FOR_BET);
+        assertState(player, IEVMBlackjack.State.READY_FOR_BET);
     }
 
     function test_placeBet() public withChips(player) {
@@ -84,9 +85,9 @@ contract EVMBlackjackTest is Test {
         evmbj.placeBet(BETSIZE1);
         vm.stopPrank();
 
-        EVMBlackjack.Game memory game = evmbj.getGame(player);
+        IEVMBlackjack.Game memory game = evmbj.getGame(player);
 
-        assertEq(game.state, EVMBlackjack.State.WAITING_FOR_RANDOMNESS, "State");
+        assertEq(game.state, IEVMBlackjack.State.WAITING_FOR_RANDOMNESS, "State");
         assertEq(game.shoeCount, SHOE_STARTING_COUNT, "Shoe count");
         assertEq(game.playerHands[0].betSize, BETSIZE1, "Bet size");
         assertEq(game.insurance, 0, "Insurance");
@@ -105,18 +106,18 @@ contract EVMBlackjackTest is Test {
         vm.expectRevert(stdError.arithmeticError);
 
         vm.prank(player);
-        evmbj.placeBet(10);
+        evmbj.placeBet(BETSIZE1);
     }
 
     function testRevert_placeBet_whenBelowMinimumBetSize() public {
-        vm.expectRevert(abi.encodeWithSelector(EVMBlackjack.InvalidBetSize.selector, BETSIZE1 - 1));
+        vm.expectRevert(abi.encodeWithSelector(IEVMBlackjack.InvalidBetSize.selector, BETSIZE1 - 1));
 
         vm.prank(player);
         evmbj.placeBet(BETSIZE1 - 1);
     }
 
     function testRevert_placeBet_whenBelowMaximumBetSize() public {
-        vm.expectRevert(abi.encodeWithSelector(EVMBlackjack.InvalidBetSize.selector, BETSIZE5 + 1));
+        vm.expectRevert(abi.encodeWithSelector(IEVMBlackjack.InvalidBetSize.selector, BETSIZE5 + 1));
 
         vm.prank(player);
         evmbj.placeBet(BETSIZE5 + 1);
@@ -127,9 +128,9 @@ contract EVMBlackjackTest is Test {
         evmbj.placeBet(BETSIZE1);
         evmbj.fulfillRandomness(player, keccak256("ace"));
 
-        EVMBlackjack.Game memory game = evmbj.getGame(player);
+        IEVMBlackjack.Game memory game = evmbj.getGame(player);
 
-        assertEq(game.state, EVMBlackjack.State.READY_FOR_INSURANCE, "State");
+        assertEq(game.state, IEVMBlackjack.State.READY_FOR_INSURANCE, "State");
         assertEq(game.shoeCount, SHOE_STARTING_COUNT - 3, "Shoe count");
         assertNumberOfCards(game.dealerCards, 1, "Dealer cards");
         assertNumberOfCards(game.playerHands[0].cards, 2, "Player cards");
@@ -144,9 +145,9 @@ contract EVMBlackjackTest is Test {
         evmbj.placeBet(BETSIZE1);
         evmbj.fulfillRandomness(player, "");
 
-        EVMBlackjack.Game memory game = evmbj.getGame(player);
+        IEVMBlackjack.Game memory game = evmbj.getGame(player);
 
-        assertEq(game.state, EVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State");
+        assertEq(game.state, IEVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State");
         assertEq(game.shoeCount, SHOE_STARTING_COUNT - 3, "Shoe count");
         assertNumberOfCards(game.dealerCards, 1, "Dealer cards");
         assertNumberOfCards(game.playerHands[0].cards, 2, "Player cards");
@@ -179,11 +180,11 @@ contract EVMBlackjackTest is Test {
         vm.prank(player);
         evmbj.takeInsurance(true);
 
-        uint16 insuranceBet = BETSIZE1 / 2;
+        uint256 insuranceBet = BETSIZE1 / 2;
 
-        EVMBlackjack.Game memory game = evmbj.getGame(player);
+        IEVMBlackjack.Game memory game = evmbj.getGame(player);
 
-        assertEq(game.state, EVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State");
+        assertEq(game.state, IEVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State");
         assertEq(game.insurance, insuranceBet, "Insurance");
         assertChips(PLAYER_STARTING_BALANCE - BETSIZE1 - insuranceBet, HOUSE_STARTING_BALANCE + BETSIZE1 + insuranceBet);
     }
@@ -208,9 +209,9 @@ contract EVMBlackjackTest is Test {
         vm.prank(player);
         evmbj.takeInsurance(false);
 
-        EVMBlackjack.Game memory game = evmbj.getGame(player);
+        IEVMBlackjack.Game memory game = evmbj.getGame(player);
 
-        assertEq(game.state, EVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State");
+        assertEq(game.state, IEVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State");
         assertEq(game.insurance, 0, "Insurance");
         assertChips(PLAYER_STARTING_BALANCE - BETSIZE1, HOUSE_STARTING_BALANCE + BETSIZE1);
     }
@@ -236,18 +237,18 @@ contract EVMBlackjackTest is Test {
         evmbj.placeBet(BETSIZE1);
         evmbj.fulfillRandomness(player, keccak256("pair of aces"));
 
-        EVMBlackjack.Game memory previousGame = evmbj.getGame(player);
+        IEVMBlackjack.Game memory previousGame = evmbj.getGame(player);
 
         assertEq(previousGame.playerHands[0].cards[0], 13);
         assertEq(previousGame.playerHands[0].cards[1], 26);
 
         vm.prank(player);
-        evmbj.takeAction(EVMBlackjack.Action.SPLIT_ACES);
+        evmbj.takeAction(IEVMBlackjack.Action.SPLIT_ACES);
 
-        EVMBlackjack.Game memory game = evmbj.getGame(player);
+        IEVMBlackjack.Game memory game = evmbj.getGame(player);
 
-        assertEq(game.state, EVMBlackjack.State.WAITING_FOR_RANDOMNESS, "State");
-        assertEq(game.lastAction, EVMBlackjack.Action.SPLIT_ACES, "Last action");
+        assertEq(game.state, IEVMBlackjack.State.WAITING_FOR_RANDOMNESS, "State");
+        assertEq(game.lastAction, IEVMBlackjack.Action.SPLIT_ACES, "Last action");
     }
 
     function test_splitAces_andFulfillRandomness() public withChips(player) withApproval(player) {
@@ -255,15 +256,15 @@ contract EVMBlackjackTest is Test {
         evmbj.placeBet(BETSIZE1);
         evmbj.fulfillRandomness(player, keccak256("pair of aces"));
 
-        EVMBlackjack.Game memory previousGame = evmbj.getGame(player);
+        IEVMBlackjack.Game memory previousGame = evmbj.getGame(player);
 
         vm.prank(player);
-        evmbj.takeAction(EVMBlackjack.Action.SPLIT_ACES);
+        evmbj.takeAction(IEVMBlackjack.Action.SPLIT_ACES);
         evmbj.fulfillRandomness(player, keccak256(""));
 
-        EVMBlackjack.Game memory game = evmbj.getGame(player);
+        IEVMBlackjack.Game memory game = evmbj.getGame(player);
 
-        assertEq(game.state, EVMBlackjack.State.DEALER_ACTION, "State");
+        assertEq(game.state, IEVMBlackjack.State.DEALER_ACTION, "State");
         assertEq(game.shoeCount, previousGame.shoeCount - 2);
     }
 
@@ -276,18 +277,18 @@ contract EVMBlackjackTest is Test {
         evmbj.placeBet(BETSIZE1);
         evmbj.fulfillRandomness(player, keccak256("pair"));
 
-        EVMBlackjack.Game memory previousGame = evmbj.getGame(player);
+        IEVMBlackjack.Game memory previousGame = evmbj.getGame(player);
 
         assertEq(previousGame.playerHands[0].cards[0], 6);
         assertEq(previousGame.playerHands[0].cards[1], 19);
 
         vm.prank(player);
-        evmbj.takeAction(EVMBlackjack.Action.SPLIT);
+        evmbj.takeAction(IEVMBlackjack.Action.SPLIT);
 
-        EVMBlackjack.Game memory game = evmbj.getGame(player);
+        IEVMBlackjack.Game memory game = evmbj.getGame(player);
 
-        assertEq(game.state, EVMBlackjack.State.WAITING_FOR_RANDOMNESS, "State");
-        assertEq(game.lastAction, EVMBlackjack.Action.SPLIT, "Last action");
+        assertEq(game.state, IEVMBlackjack.State.WAITING_FOR_RANDOMNESS, "State");
+        assertEq(game.lastAction, IEVMBlackjack.Action.SPLIT, "Last action");
     }
 
     function test_split_andFulfillRandomness() public withChips(player) withApproval(player) {
@@ -295,15 +296,15 @@ contract EVMBlackjackTest is Test {
         evmbj.placeBet(BETSIZE1);
         evmbj.fulfillRandomness(player, keccak256("pair"));
 
-        EVMBlackjack.Game memory previousGame = evmbj.getGame(player);
+        IEVMBlackjack.Game memory previousGame = evmbj.getGame(player);
 
         vm.prank(player);
-        evmbj.takeAction(EVMBlackjack.Action.SPLIT);
+        evmbj.takeAction(IEVMBlackjack.Action.SPLIT);
         evmbj.fulfillRandomness(player, keccak256(""));
 
-        EVMBlackjack.Game memory game = evmbj.getGame(player);
+        IEVMBlackjack.Game memory game = evmbj.getGame(player);
 
-        assertEq(game.state, EVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State");
+        assertEq(game.state, IEVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State");
         assertEq(game.shoeCount, previousGame.shoeCount - 2);
     }
 
@@ -313,24 +314,24 @@ contract EVMBlackjackTest is Test {
 
     function test_doubleDown() public withChips(player) withApproval(player) readyForPlayerAction(player) {
         vm.prank(player);
-        evmbj.takeAction(EVMBlackjack.Action.DOUBLE_DOWN);
+        evmbj.takeAction(IEVMBlackjack.Action.DOUBLE_DOWN);
 
-        EVMBlackjack.Game memory game = evmbj.getGame(player);
+        IEVMBlackjack.Game memory game = evmbj.getGame(player);
 
-        uint16 doubleDownBet = BETSIZE1 * 2;
+        uint256 doubleDownBet = BETSIZE1 * 2;
 
-        assertEq(game.state, EVMBlackjack.State.WAITING_FOR_RANDOMNESS, "State");
-        assertEq(game.lastAction, EVMBlackjack.Action.DOUBLE_DOWN, "Last action");
+        assertEq(game.state, IEVMBlackjack.State.WAITING_FOR_RANDOMNESS, "State");
+        assertEq(game.lastAction, IEVMBlackjack.Action.DOUBLE_DOWN, "Last action");
         assertEq(game.playerHands[0].betSize, doubleDownBet, "Bet size"); // doubled bet size
         assertChips(PLAYER_STARTING_BALANCE - doubleDownBet, HOUSE_STARTING_BALANCE + doubleDownBet);
     }
 
     function testEvent_doubleDown() public withChips(player) withApproval(player) readyForPlayerAction(player) {
         vm.expectEmit(true, true, true, true);
-        emit PlayerActionTaken(player, EVMBlackjack.Action.DOUBLE_DOWN);
+        emit PlayerActionTaken(player, IEVMBlackjack.Action.DOUBLE_DOWN);
 
         vm.prank(player);
-        evmbj.takeAction(EVMBlackjack.Action.DOUBLE_DOWN);
+        evmbj.takeAction(IEVMBlackjack.Action.DOUBLE_DOWN);
     }
 
     function test_doubleDown_andFulfillRandomness()
@@ -340,15 +341,15 @@ contract EVMBlackjackTest is Test {
         readyForPlayerAction(player)
     {
         vm.prank(player);
-        evmbj.takeAction(EVMBlackjack.Action.DOUBLE_DOWN);
+        evmbj.takeAction(IEVMBlackjack.Action.DOUBLE_DOWN);
 
-        EVMBlackjack.Game memory previousGame = evmbj.getGame(player);
+        IEVMBlackjack.Game memory previousGame = evmbj.getGame(player);
 
         evmbj.fulfillRandomness(player, "");
 
-        EVMBlackjack.Game memory game = evmbj.getGame(player);
+        IEVMBlackjack.Game memory game = evmbj.getGame(player);
 
-        assertEq(game.state, EVMBlackjack.State.DEALER_ACTION, "State");
+        assertEq(game.state, IEVMBlackjack.State.DEALER_ACTION, "State");
         assertEq(game.shoeCount, previousGame.shoeCount - 1, "Shoe count");
         assertNumberOfCards(game.playerHands[0].cards, 3, "Player cards"); // one more card
     }
@@ -360,7 +361,7 @@ contract EVMBlackjackTest is Test {
         readyForPlayerAction(player)
     {
         vm.prank(player);
-        evmbj.takeAction(EVMBlackjack.Action.DOUBLE_DOWN);
+        evmbj.takeAction(IEVMBlackjack.Action.DOUBLE_DOWN);
 
         // TODO make less brittle re log assertion and hardcoded card
         vm.expectEmit(true, true, true, false);
@@ -375,21 +376,21 @@ contract EVMBlackjackTest is Test {
 
     function test_hit() public withChips(player) withApproval(player) readyForPlayerAction(player) {
         vm.prank(player);
-        evmbj.takeAction(EVMBlackjack.Action.HIT);
+        evmbj.takeAction(IEVMBlackjack.Action.HIT);
 
-        EVMBlackjack.Game memory game = evmbj.getGame(player);
+        IEVMBlackjack.Game memory game = evmbj.getGame(player);
 
-        assertEq(game.state, EVMBlackjack.State.WAITING_FOR_RANDOMNESS, "State");
-        assertEq(game.lastAction, EVMBlackjack.Action.HIT, "Last action");
+        assertEq(game.state, IEVMBlackjack.State.WAITING_FOR_RANDOMNESS, "State");
+        assertEq(game.lastAction, IEVMBlackjack.Action.HIT, "Last action");
         assertEq(game.playerHands[0].betSize, BETSIZE1, "Bet size"); // no change
     }
 
     function testEvent_hit() public withChips(player) withApproval(player) readyForPlayerAction(player) {
         vm.expectEmit(true, true, true, true);
-        emit PlayerActionTaken(player, EVMBlackjack.Action.HIT);
+        emit PlayerActionTaken(player, IEVMBlackjack.Action.HIT);
 
         vm.prank(player);
-        evmbj.takeAction(EVMBlackjack.Action.HIT);
+        evmbj.takeAction(IEVMBlackjack.Action.HIT);
     }
 
     function test_hit_andFulfillRandomness()
@@ -399,15 +400,15 @@ contract EVMBlackjackTest is Test {
         readyForPlayerAction(player)
     {
         vm.prank(player);
-        evmbj.takeAction(EVMBlackjack.Action.HIT);
+        evmbj.takeAction(IEVMBlackjack.Action.HIT);
 
-        EVMBlackjack.Game memory previousGame = evmbj.getGame(player);
+        IEVMBlackjack.Game memory previousGame = evmbj.getGame(player);
 
         evmbj.fulfillRandomness(player, "");
 
-        EVMBlackjack.Game memory game = evmbj.getGame(player);
+        IEVMBlackjack.Game memory game = evmbj.getGame(player);
 
-        assertEq(game.state, EVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State");
+        assertEq(game.state, IEVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State");
         assertEq(game.shoeCount, previousGame.shoeCount - 1, "Shoe count");
         assertNumberOfCards(game.playerHands[0].cards, 3, "Player cards"); // one more card
     }
@@ -419,7 +420,7 @@ contract EVMBlackjackTest is Test {
         readyForPlayerAction(player)
     {
         vm.prank(player);
-        evmbj.takeAction(EVMBlackjack.Action.HIT);
+        evmbj.takeAction(IEVMBlackjack.Action.HIT);
 
         // TODO make less brittle re log assertion and hardcoded card
         vm.expectEmit(true, true, true, false);
@@ -433,15 +434,15 @@ contract EVMBlackjackTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_stand() public withChips(player) withApproval(player) readyForPlayerAction(player) {
-        EVMBlackjack.Game memory previousGame = evmbj.getGame(player);
+        IEVMBlackjack.Game memory previousGame = evmbj.getGame(player);
 
         vm.prank(player);
-        evmbj.takeAction(EVMBlackjack.Action.STAND);
+        evmbj.takeAction(IEVMBlackjack.Action.STAND);
 
-        EVMBlackjack.Game memory game = evmbj.getGame(player);
+        IEVMBlackjack.Game memory game = evmbj.getGame(player);
 
-        assertEq(game.state, EVMBlackjack.State.DEALER_ACTION, "State");
-        assertEq(game.lastAction, EVMBlackjack.Action.STAND, "Last action");
+        assertEq(game.state, IEVMBlackjack.State.DEALER_ACTION, "State");
+        assertEq(game.lastAction, IEVMBlackjack.Action.STAND, "Last action");
         assertEq(game.shoeCount, previousGame.shoeCount, "Shoe count"); // no change
         assertNumberOfCards(game.playerHands[0].cards, 2, "Player cards"); // no change
         assertEq(game.playerHands[0].betSize, BETSIZE1, "Bet size"); // no change
@@ -449,26 +450,26 @@ contract EVMBlackjackTest is Test {
 
     function testEvent_stand() public withChips(player) withApproval(player) readyForPlayerAction(player) {
         vm.expectEmit(true, true, true, true);
-        emit PlayerActionTaken(player, EVMBlackjack.Action.STAND);
+        emit PlayerActionTaken(player, IEVMBlackjack.Action.STAND);
 
         vm.prank(player);
-        evmbj.takeAction(EVMBlackjack.Action.STAND);
+        evmbj.takeAction(IEVMBlackjack.Action.STAND);
     }
 
     /*//////////////////////////////////////////////////////////////
     //  Test Helpers
     //////////////////////////////////////////////////////////////*/
 
-    function assertState(address _player, EVMBlackjack.State expectedState) internal {
-        EVMBlackjack.Game memory game = evmbj.getGame(_player);
+    function assertState(address _player, IEVMBlackjack.State expectedState) internal {
+        IEVMBlackjack.Game memory game = evmbj.getGame(_player);
         assertEq(game.state, expectedState, "State");
     }
 
-    function assertEq(EVMBlackjack.State a, EVMBlackjack.State b, string memory reason) internal {
+    function assertEq(IEVMBlackjack.State a, IEVMBlackjack.State b, string memory reason) internal {
         assertEq(uint256(a), uint256(b), reason);
     }
 
-    function assertEq(EVMBlackjack.Action a, EVMBlackjack.Action b, string memory reason) internal {
+    function assertEq(IEVMBlackjack.Action a, IEVMBlackjack.Action b, string memory reason) internal {
         assertEq(uint256(a), uint256(b), reason);
     }
 
@@ -489,14 +490,14 @@ contract EVMBlackjackTest is Test {
     //  Events
     //////////////////////////////////////////////////////////////*/
 
-    event BetPlaced(address indexed player, uint16 betSize);
+    event BetPlaced(address indexed player, uint256 betSize);
     event PlayerCardDealt(address indexed player, uint8 card, uint8 handIndex);
     event DealerCardDealt(address indexed player, uint8 card);
     event InsuranceTaken(address indexed player, bool take);
-    event PlayerActionTaken(address indexed player, EVMBlackjack.Action action);
+    event PlayerActionTaken(address indexed player, IEVMBlackjack.Action action);
     event PlayerBust(address indexed player);
     event DealerBust(address indexed player);
-    event PayoutsHandled(address indexed player, uint16 playerPayout, uint16 dealerPayout);
+    event PayoutsHandled(address indexed player, uint256 playerPayout, uint256 dealerPayout);
 
     /*//////////////////////////////////////////////////////////////
     //  Game States OLD
@@ -539,7 +540,7 @@ contract EVMBlackjackTest is Test {
     // }
 
     // function testRevert_fulfillRandomness_whenState_readyForBet() public {
-    //     vm.expectRevert(EVMBlackjack.InvalidStateTransition.selector);
+    //     vm.expectRevert(EVMBlackjack.InvalidAction.selector);
     //     evmbj.fulfillRandomness(player, keccak256("hey"));
     // }
 
@@ -573,7 +574,7 @@ contract EVMBlackjackTest is Test {
     // // TODO testRevert_declineInsurance_whenDealerDoesNotShowAnAce
 
     // function testRevert_takeInsurance_whenState_readyForBet() public {
-    //     vm.expectRevert(EVMBlackjack.InvalidStateTransition.selector);
+    //     vm.expectRevert(EVMBlackjack.InvalidAction.selector);
 
     //     vm.prank(player);
     //     evmbj.takeInsurance(true);
@@ -583,7 +584,7 @@ contract EVMBlackjackTest is Test {
     //     vm.prank(player);
     //     evmbj.placeBet(10);
 
-    //     vm.expectRevert(EVMBlackjack.InvalidStateTransition.selector);
+    //     vm.expectRevert(EVMBlackjack.InvalidAction.selector);
 
     //     vm.prank(player);
     //     evmbj.takeInsurance(true);
@@ -610,7 +611,7 @@ contract EVMBlackjackTest is Test {
     // }
 
     // function testRevert_declineInsurance_whenState_readyForBet() public {
-    //     vm.expectRevert(EVMBlackjack.InvalidStateTransition.selector);
+    //     vm.expectRevert(EVMBlackjack.InvalidAction.selector);
 
     //     vm.prank(player);
     //     evmbj.takeInsurance(false);
@@ -620,7 +621,7 @@ contract EVMBlackjackTest is Test {
     //     vm.prank(player);
     //     evmbj.placeBet(10);
 
-    //     vm.expectRevert(EVMBlackjack.InvalidStateTransition.selector);
+    //     vm.expectRevert(EVMBlackjack.InvalidAction.selector);
 
     //     vm.prank(player);
     //     evmbj.takeInsurance(false);

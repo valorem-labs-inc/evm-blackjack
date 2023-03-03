@@ -1,70 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
+import {IEVMBlackjack} from "../src/IEVMBlackjack.sol";
 import {Chip} from "../src/Chip.sol";
 
-contract EVMBlackjack {
-    /*//////////////////////////////////////////////////////////////
-    //  Events
-    //////////////////////////////////////////////////////////////*/
-
-    event BetPlaced(address indexed player, uint16 betSize);
-    event PlayerCardDealt(address indexed player, uint8 card, uint8 handIndex);
-    event DealerCardDealt(address indexed player, uint8 card);
-    event InsuranceTaken(address indexed player, bool take);
-    event PlayerActionTaken(address indexed player, Action action);
-    event PlayerBust(address indexed player);
-    event DealerBust(address indexed player);
-    event PayoutsHandled(address indexed player, uint16 playerPayout, uint16 dealerPayout);
-
-    /*//////////////////////////////////////////////////////////////
-    //  Errors
-    //////////////////////////////////////////////////////////////*/
-
-    error InvalidStateTransition();
-    error InvalidBetSize(uint16 betSize);
-
-    /*//////////////////////////////////////////////////////////////
-    //  Data Structures
-    //////////////////////////////////////////////////////////////*/
-
-    enum State {
-        READY_FOR_BET,
-        WAITING_FOR_RANDOMNESS,
-        READY_FOR_INSURANCE,
-        READY_FOR_PLAYER_ACTION,
-        DEALER_ACTION,
-        PAYOUTS
-    }
-
-    enum Action {
-        NO_ACTION,
-        SPLIT_ACES,
-        SPLIT,
-        DOUBLE_DOWN,
-        HIT,
-        STAND
-    }
-
-    struct Game {
-        State state;
-        uint16 shoeCount;
-        uint8[] dealerCards;
-        uint16 insurance;
-        Action lastAction;
-        uint8 totalPlayerHands;
-        uint8 activePlayerHand;
-        Hand[] playerHands;
-    }
-
-    // uint8[] playerCards;
-    // uint16 betSize;
-
-    struct Hand {
-        uint8[] cards;
-        uint16 betSize;
-    }
-
+/// @title EVM Blackjack Protocol
+/// @author neodaoist
+/// @author 0xAlcibiades
+/// @author Flip-Liquid
+/// @author nickadamson
+/// @notice TODO
+contract EVMBlackjack is IEVMBlackjack {
     /*//////////////////////////////////////////////////////////////
     //  Private Variables -- State
     //////////////////////////////////////////////////////////////*/
@@ -77,8 +23,8 @@ contract EVMBlackjack {
     //  Private Variables -- Constant
     //////////////////////////////////////////////////////////////*/
 
-    uint16 internal constant MINIMUM_BET_SIZE = 10;
-    uint16 internal constant MAXIMUM_BET_SIZE = 100;
+    uint256 internal constant MINIMUM_BET_SIZE = 10 ether;
+    uint256 internal constant MAXIMUM_BET_SIZE = 100 ether;
 
     uint16 internal constant SHOE_STARTING_COUNT = 52 * 6;
 
@@ -120,7 +66,7 @@ contract EVMBlackjack {
         // Determine what to do with randomness...
         if (game.state != State.WAITING_FOR_RANDOMNESS) {
             // We can't fulfill randomness if not waiting for randomness.
-            revert InvalidStateTransition();
+            revert InvalidAction();
         } else if (game.shoeCount == SHOE_STARTING_COUNT) {
             // seed
             // pair of aces -- player gets AA (13, 26)
@@ -210,7 +156,7 @@ contract EVMBlackjack {
     //  Place Bet
     //////////////////////////////////////////////////////////////*/
 
-    function placeBet(uint16 _betSize) public {
+    function placeBet(uint256 _betSize) public {
         //
         if (_betSize < MINIMUM_BET_SIZE || _betSize > MAXIMUM_BET_SIZE) {
             revert InvalidBetSize(_betSize);
@@ -239,11 +185,11 @@ contract EVMBlackjack {
         Game storage game = games[msg.sender];
 
         if (game.state != State.READY_FOR_INSURANCE) {
-            revert InvalidStateTransition();
+            revert InvalidAction();
         }
 
         if (_take) {
-            uint16 insuranceBet = game.playerHands[0].betSize / 2;
+            uint256 insuranceBet = game.playerHands[0].betSize / 2;
 
             // Store side bet
             game.insurance = insuranceBet;
@@ -266,13 +212,13 @@ contract EVMBlackjack {
         Game storage game = games[msg.sender];
 
         if (game.state != State.READY_FOR_PLAYER_ACTION) {
-            revert InvalidStateTransition();
+            revert InvalidAction();
         }
 
         // Handle player action.
         if (action == Action.SPLIT_ACES) {
             if (!isAce(game.playerHands[0].cards[0]) || !isAce(game.playerHands[0].cards[1])) {
-                revert InvalidStateTransition();
+                revert InvalidAction();
             }
 
             // TODO instantiate new hand and request randomness
@@ -281,7 +227,7 @@ contract EVMBlackjack {
             game.lastAction = Action.SPLIT_ACES;
         } else if (action == Action.SPLIT) {
             if (!isPair(game.playerHands[0].cards[0], game.playerHands[0].cards[1])) {
-                revert InvalidStateTransition();
+                revert InvalidAction();
             }
 
             // TODO instantiate new hand and request randomness
@@ -293,7 +239,7 @@ contract EVMBlackjack {
 
             game.state = State.WAITING_FOR_RANDOMNESS;
             game.lastAction = Action.DOUBLE_DOWN;
-            uint16 betSize = game.playerHands[0].betSize;
+            uint256 betSize = game.playerHands[0].betSize;
             game.playerHands[0].betSize *= 2;
 
             // Transfer CHIP
