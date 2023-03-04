@@ -266,7 +266,7 @@ contract EVMBlackjack is IEVMBlackjack {
             chip.transferFrom(msg.sender, address(this), betSize);
 
             // QUESTION should we emit an event like BetIncreased ?
-        } else if (action == Action.HIT) {            
+        } else if (action == Action.HIT) {
             // Update game state.
             game.state = State.WAITING_FOR_RANDOMNESS;
             game.lastAction = Action.HIT;

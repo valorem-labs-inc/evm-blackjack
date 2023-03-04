@@ -6,6 +6,7 @@ import "forge-std/Test.sol";
 import {Chip} from "../src/Chip.sol";
 import "../src/EVMBlackjack.sol";
 
+// DONE Deploy script
 // TODO Split
 // DONE Remove Split Aces
 // TODO Maybe Insurance
@@ -16,6 +17,7 @@ import "../src/EVMBlackjack.sol";
 // TODO Stand, revert if we hit the Else block
 // TODO Dealer action, Hand valuation
 // TODO Payouts
+// TODO Reshuffle shoe
 
 /// @title EVM Blackjack Protocol tests
 contract EVMBlackjackTest is Test {
@@ -41,7 +43,7 @@ contract EVMBlackjackTest is Test {
     function setUp() public {
         chip = new Chip();
         evmbj = new EVMBlackjack(chip);
-        chip.tempHouseMint(address(evmbj));
+        chip.houseMint(address(evmbj));
 
         vm.deal(player, 10 ether);
         vm.deal(player2, 10 ether);

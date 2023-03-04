@@ -11,17 +11,25 @@ import "solmate/tokens/ERC20.sol";
 /// @notice A just-for-fun chip token for playing EVM Blackjack
 contract Chip is ERC20 {
     error MaxSupplyReached();
-    error AlreadyClaimed();
+    error HouseAlreadyMinted();
+    error PlayerAlreadyClaimed();
 
-    mapping(address => bool) private hasClaimed;
+    bool private houseHasMinted;
+    mapping(address => bool) private playerHasClaimed;
 
-    uint256 private constant CLAIM_AMOUNT = 1_000 ether;
-    uint256 private constant HOUSE_AMOUNT = 1_000_000 ether;
     uint256 private constant MAX_SUPPLY = 10_000_000 ether;
+    uint256 private constant HOUSE_AMOUNT = 1_000_000 ether;
+    uint256 private constant PLAYER_AMOUNT = 1_000 ether;
 
     constructor() ERC20("Chip", "CHIP", 18) {}
 
-    function tempHouseMint(address house) public {
+    function houseMint(address house) public {
+        if (houseHasMinted) {
+            revert HouseAlreadyMinted();
+        }
+
+        houseHasMinted = true;
+
         _mint(house, HOUSE_AMOUNT);
     }
 
@@ -29,12 +37,12 @@ contract Chip is ERC20 {
         if (totalSupply >= MAX_SUPPLY) {
             revert MaxSupplyReached();
         }
-        if (hasClaimed[msg.sender]) {
-            revert AlreadyClaimed();
+        if (playerHasClaimed[msg.sender]) {
+            revert PlayerAlreadyClaimed();
         }
 
-        hasClaimed[msg.sender] = true;
+        playerHasClaimed[msg.sender] = true;
 
-        _mint(msg.sender, CLAIM_AMOUNT);
+        _mint(msg.sender, PLAYER_AMOUNT);
     }
 }
