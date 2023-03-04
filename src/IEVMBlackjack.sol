@@ -27,6 +27,7 @@ interface IEVMBlackjack {
 
     error InvalidAction();
     error InvalidBetSize(uint256 betSize);
+    error InvalidRandomnessRequest();
 
     /*//////////////////////////////////////////////////////////////
     //  Data Structures
@@ -72,9 +73,9 @@ interface IEVMBlackjack {
 
     function getGame(address player) external view returns (Game memory game);
 
-    function placeBet(uint256 betSize) external;
+    function placeBet(uint256 betSize) external returns (bytes32 requestId);
 
     function takeInsurance(bool take) external;
 
-    function takeAction(Action action) external;
+    function takeAction(Action action) external returns (bytes32 requestId);
 }

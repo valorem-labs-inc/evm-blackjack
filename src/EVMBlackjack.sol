@@ -15,9 +15,14 @@ contract EVMBlackjack is IEVMBlackjack {
     //  Private Variables -- State
     //////////////////////////////////////////////////////////////*/
 
+    /// @dev Chip token
     Chip internal chip;
 
+    /// @dev Player address => Game
     mapping(address => Game) internal games;
+
+    /// @dev Randomness request id => Player address
+    mapping(bytes32 => address) internal randomnessRequests;
 
     /*//////////////////////////////////////////////////////////////
     //  Private Variables -- Constant
@@ -58,16 +63,27 @@ contract EVMBlackjack is IEVMBlackjack {
     //  Randomness
     //////////////////////////////////////////////////////////////*/
 
-    function requestRandomness(address _player) public {}
+    function requestRandomness(address _player) public returns (bytes32 requestId) {
+        requestId = bytes32(abi.encode(_player, block.timestamp)); // TEMP
+        randomnessRequests[requestId] = _player;
+    }
 
-    function fulfillRandomness(address _player, bytes32 _randomness) public {
-        Game storage game = games[_player];
+    function fulfillRandomness(bytes32 _requestId, bytes32 _randomness) public {
+        address player = randomnessRequests[_requestId];
 
-        // Determine what to do with randomness...
+        if (player == address(0)) {
+            revert InvalidRandomnessRequest();
+        }
+
+        Game storage game = games[player];
+
         if (game.state != State.WAITING_FOR_RANDOMNESS) {
             // We can't fulfill randomness if not waiting for randomness.
             revert InvalidAction();
-        } else if (game.shoeCount == SHOE_STARTING_COUNT) {
+        }
+
+        // Determine what to do with randomness...
+        if (game.shoeCount == SHOE_STARTING_COUNT) {
             // seed
             // pair of aces -- player gets AA (13, 26)
             // pair         -- player gets 77 (6, 19)
@@ -80,64 +96,67 @@ contract EVMBlackjack is IEVMBlackjack {
             // Deal player card 1,
             if (_randomness == keccak256("pair of aces")) {
                 // TEMP
-                dealPlayerCard(_player, 13, 0);
+                dealPlayerCard(player, 13, 0);
             } else if (_randomness == keccak256("pair")) {
-                dealPlayerCard(_player, 6, 0);
+                dealPlayerCard(player, 6, 0);
             } else {
-                dealPlayerCard(_player, 4, 0);
+                dealPlayerCard(player, 4, 0);
             }
 
             // Deal dealer card 1,
             if (_randomness == keccak256("ace")) {
                 // TEMP
-                dealDealerCard(_player, 0);
+                dealDealerCard(player, 0);
                 game.state = State.READY_FOR_INSURANCE;
             } else {
-                dealDealerCard(_player, 1);
+                dealDealerCard(player, 1);
                 game.state = State.READY_FOR_PLAYER_ACTION;
             }
 
             // Deal player card 2,
             if (_randomness == keccak256("pair of aces")) {
                 // TEMP
-                dealPlayerCard(_player, 26, 0);
+                dealPlayerCard(player, 26, 0);
             } else if (_randomness == keccak256("pair")) {
-                dealPlayerCard(_player, 19, 0);
+                dealPlayerCard(player, 19, 0);
             } else {
-                dealPlayerCard(_player, 16, 0);
+                dealPlayerCard(player, 16, 0);
             }
 
             // Update shoe.
             game.shoeCount -= 3;
         } else if (game.lastAction == Action.SPLIT_ACES) {
             // Player's last action was split aces, so we handle and go to Dealer Action.
-            dealPlayerCard(_player, 50, 0);
-            dealPlayerCard(_player, 51, 0);
+            dealPlayerCard(player, 50, 0);
+            dealPlayerCard(player, 51, 0);
 
             game.shoeCount -= 2;
             game.state = State.DEALER_ACTION;
         } else if (game.lastAction == Action.SPLIT) {
             // Player's last action was split, so we handle and go to Ready for Player Action.
-            dealPlayerCard(_player, 50, 0);
-            dealPlayerCard(_player, 51, 0);
+            dealPlayerCard(player, 50, 0);
+            dealPlayerCard(player, 51, 0);
 
             game.shoeCount -= 2;
             game.state = State.READY_FOR_PLAYER_ACTION;
         } else if (game.lastAction == Action.DOUBLE_DOWN) {
             // Player's last action was double down, so we handle and go to Dealer Action.
-            dealPlayerCard(_player, 15, 0);
+            dealPlayerCard(player, 15, 0);
 
             game.shoeCount--;
             game.state = State.DEALER_ACTION;
         } else if (game.lastAction == Action.HIT) {
             // Player's last action was hit, so we handle and go to Ready for Player Action.
-            dealPlayerCard(_player, 25, 0);
+            dealPlayerCard(player, 25, 0);
 
             game.shoeCount--;
             game.state = State.READY_FOR_PLAYER_ACTION;
         } else {
             //
         }
+
+        // Cleanup the handled randomness request.
+        delete randomnessRequests[_requestId];
     }
 
     function dealPlayerCard(address _player, uint8 _card, uint8 _handIndex) internal {
@@ -156,7 +175,7 @@ contract EVMBlackjack is IEVMBlackjack {
     //  Place Bet
     //////////////////////////////////////////////////////////////*/
 
-    function placeBet(uint256 _betSize) public {
+    function placeBet(uint256 _betSize) public returns (bytes32 requestId) {
         //
         if (_betSize < MINIMUM_BET_SIZE || _betSize > MAXIMUM_BET_SIZE) {
             revert InvalidBetSize(_betSize);
@@ -172,7 +191,7 @@ contract EVMBlackjack is IEVMBlackjack {
         game.playerHands.push(Hand({cards: new uint8[](0), betSize: _betSize}));
 
         // Request randomness
-        requestRandomness(msg.sender);
+        requestId = requestRandomness(msg.sender);
 
         emit BetPlaced(msg.sender, _betSize);
     }
@@ -208,7 +227,7 @@ contract EVMBlackjack is IEVMBlackjack {
     //  Player Action
     //////////////////////////////////////////////////////////////*/
 
-    function takeAction(Action action) public {
+    function takeAction(Action action) public returns (bytes32 requestId) {
         Game storage game = games[msg.sender];
 
         if (game.state != State.READY_FOR_PLAYER_ACTION) {
@@ -257,6 +276,9 @@ contract EVMBlackjack is IEVMBlackjack {
         } else {
             //
         }
+
+        // Request randomness
+        requestId = requestRandomness(msg.sender);
 
         emit PlayerActionTaken(msg.sender, action);
     }
