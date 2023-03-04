@@ -183,9 +183,11 @@ contract EVMBlackjackTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function testRevert_fulfillRandomness_whenRequestIdNotFound() public {
-        vm.expectRevert(IEVMBlackjack.InvalidRandomnessRequest.selector);
+        bytes32 badRequestId = keccak256("bad bad");
 
-        evmbj.fulfillRandomness(keccak256("bad bad"), keccak256("hey there"));
+        vm.expectRevert(abi.encodeWithSelector(IEVMBlackjack.InvalidRandomnessRequest.selector, badRequestId));
+
+        evmbj.fulfillRandomness(badRequestId, keccak256("hey there"));
     }
 
     function testRevert_fulfillRandomness_whenAlreadyHandled() public withChips(player) withApproval(player) {
@@ -193,7 +195,7 @@ contract EVMBlackjackTest is Test {
         bytes32 requestId = evmbj.placeBet(BETSIZE1);
         evmbj.fulfillRandomness(requestId, keccak256("hey there"));
 
-        vm.expectRevert(IEVMBlackjack.InvalidRandomnessRequest.selector);
+        vm.expectRevert(abi.encodeWithSelector(IEVMBlackjack.InvalidRandomnessRequest.selector, requestId));
 
         evmbj.fulfillRandomness(requestId, keccak256("hey there"));
     }

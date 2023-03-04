@@ -72,7 +72,7 @@ contract EVMBlackjack is IEVMBlackjack {
         address player = randomnessRequests[_requestId];
 
         if (player == address(0)) {
-            revert InvalidRandomnessRequest();
+            revert InvalidRandomnessRequest(_requestId);
         }
 
         Game storage game = games[player];

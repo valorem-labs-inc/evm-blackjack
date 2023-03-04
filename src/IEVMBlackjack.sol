@@ -27,7 +27,7 @@ interface IEVMBlackjack {
 
     error InvalidAction();
     error InvalidBetSize(uint256 betSize);
-    error InvalidRandomnessRequest();
+    error InvalidRandomnessRequest(bytes32 requestId);
 
     /*//////////////////////////////////////////////////////////////
     //  Data Structures
