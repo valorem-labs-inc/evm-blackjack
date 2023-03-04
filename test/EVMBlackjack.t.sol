@@ -7,7 +7,8 @@ import {Chip} from "../src/Chip.sol";
 import "../src/EVMBlackjack.sol";
 
 // TODO Split
-// TODO Insurance
+// DONE Remove Split Aces
+// TODO Maybe Insurance
 // DONE Randomness ID => Player Address
 // TODO Randomness ABI, use actual Chainlink VRF v2
 // DONE Randomness at end of takeAction (except Insurance)
@@ -281,6 +282,7 @@ contract EVMBlackjackTest is Test {
 
         assertEq(game.state, IEVMBlackjack.State.WAITING_FOR_RANDOMNESS, "State");
         assertEq(game.lastAction, IEVMBlackjack.Action.SPLIT, "Last action");
+        assertEq(game.totalPlayerHands, 1);
     }
 
     function test_splitAces_andFulfillRandomness() public withChips(player) withApproval(player) {
@@ -321,6 +323,7 @@ contract EVMBlackjackTest is Test {
 
         assertEq(game.state, IEVMBlackjack.State.WAITING_FOR_RANDOMNESS, "State");
         assertEq(game.lastAction, IEVMBlackjack.Action.SPLIT, "Last action");
+        assertEq(game.totalPlayerHands, 1);
     }
 
     function test_split_andFulfillRandomness() public withChips(player) withApproval(player) {

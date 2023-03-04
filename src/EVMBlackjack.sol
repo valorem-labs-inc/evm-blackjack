@@ -179,7 +179,6 @@ contract EVMBlackjack is IEVMBlackjack {
     //////////////////////////////////////////////////////////////*/
 
     function placeBet(uint256 _betSize) public returns (bytes32 requestId) {
-        //
         if (_betSize < MINIMUM_BET_SIZE || _betSize > MAXIMUM_BET_SIZE) {
             revert InvalidBetSize(_betSize);
         }
@@ -243,32 +242,40 @@ contract EVMBlackjack is IEVMBlackjack {
                 revert InvalidAction();
             }
 
-            // TODO instantiate new hand and request randomness
+            // Instantiate new hand.
+            uint256 betSize = game.playerHands[0].betSize;
+            game.totalPlayerHands++;
+            game.playerHands.push(Hand({cards: new uint8[](0), betSize: betSize}));
 
+            // Update game state.
             game.state = State.WAITING_FOR_RANDOMNESS;
             game.lastAction = Action.SPLIT;
-        } else if (action == Action.DOUBLE_DOWN) {
-            // TODO request randomness
 
-            game.state = State.WAITING_FOR_RANDOMNESS;
-            game.lastAction = Action.DOUBLE_DOWN;
+            // Transfer additional CHIP.
+            chip.transferFrom(msg.sender, address(this), betSize);
+        } else if (action == Action.DOUBLE_DOWN) {
+            // Increase bet size for hand.
             uint256 betSize = game.playerHands[0].betSize;
             game.playerHands[0].betSize *= 2;
 
-            // Transfer CHIP
+            // Update game state.
+            game.state = State.WAITING_FOR_RANDOMNESS;
+            game.lastAction = Action.DOUBLE_DOWN;
+
+            // Transfer additional CHIP.
             chip.transferFrom(msg.sender, address(this), betSize);
 
             // QUESTION should we emit an event like BetIncreased ?
-        } else if (action == Action.HIT) {
-            // TODO request randomness
-
+        } else if (action == Action.HIT) {            
+            // Update game state.
             game.state = State.WAITING_FOR_RANDOMNESS;
             game.lastAction = Action.HIT;
         } else if (action == Action.STAND) {
+            // Update game state.
             game.state = State.DEALER_ACTION;
             game.lastAction = Action.STAND;
         } else {
-            //
+            revert InvalidAction();
         }
 
         // Request randomness
