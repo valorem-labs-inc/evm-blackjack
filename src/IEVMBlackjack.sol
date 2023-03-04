@@ -44,7 +44,6 @@ interface IEVMBlackjack {
 
     enum Action {
         NO_ACTION,
-        SPLIT_ACES,
         SPLIT,
         DOUBLE_DOWN,
         HIT,

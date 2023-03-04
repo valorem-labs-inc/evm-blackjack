@@ -273,12 +273,12 @@ contract EVMBlackjackTest is Test {
         assertEq(previousGame.playerHands[0].cards[1], 26);
 
         vm.prank(player);
-        evmbj.takeAction(IEVMBlackjack.Action.SPLIT_ACES);
+        evmbj.takeAction(IEVMBlackjack.Action.SPLIT);
 
         IEVMBlackjack.Game memory game = evmbj.getGame(player);
 
         assertEq(game.state, IEVMBlackjack.State.WAITING_FOR_RANDOMNESS, "State");
-        assertEq(game.lastAction, IEVMBlackjack.Action.SPLIT_ACES, "Last action");
+        assertEq(game.lastAction, IEVMBlackjack.Action.SPLIT, "Last action");
     }
 
     function test_splitAces_andFulfillRandomness() public withChips(player) withApproval(player) {
@@ -289,7 +289,7 @@ contract EVMBlackjackTest is Test {
         IEVMBlackjack.Game memory previousGame = evmbj.getGame(player);
 
         vm.prank(player);
-        requestId = evmbj.takeAction(IEVMBlackjack.Action.SPLIT_ACES);
+        requestId = evmbj.takeAction(IEVMBlackjack.Action.SPLIT);
         evmbj.fulfillRandomness(requestId, keccak256(""));
 
         IEVMBlackjack.Game memory game = evmbj.getGame(player);

@@ -125,7 +125,10 @@ contract EVMBlackjack is IEVMBlackjack {
 
             // Update shoe.
             game.shoeCount -= 3;
-        } else if (game.lastAction == Action.SPLIT_ACES) {
+        } else if (
+            game.lastAction == Action.SPLIT && isAce(game.playerHands[0].cards[0])
+                && isAce(game.playerHands[0].cards[1])
+        ) {
             // Player's last action was split aces, so we handle and go to Dealer Action.
             dealPlayerCard(player, 50, 0);
             dealPlayerCard(player, 51, 0);
@@ -235,16 +238,7 @@ contract EVMBlackjack is IEVMBlackjack {
         }
 
         // Handle player action.
-        if (action == Action.SPLIT_ACES) {
-            if (!isAce(game.playerHands[0].cards[0]) || !isAce(game.playerHands[0].cards[1])) {
-                revert InvalidAction();
-            }
-
-            // TODO instantiate new hand and request randomness
-
-            game.state = State.WAITING_FOR_RANDOMNESS;
-            game.lastAction = Action.SPLIT_ACES;
-        } else if (action == Action.SPLIT) {
+        if (action == Action.SPLIT) {
             if (!isPair(game.playerHands[0].cards[0], game.playerHands[0].cards[1])) {
                 revert InvalidAction();
             }
