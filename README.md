@@ -10,9 +10,9 @@ _A provably fair, on-chain blackjack game, showcasing our new open source reposi
 
 - 🧮 Use probabilistic weighting in **DeFi applications**
 
-## Repositories
-1. Smart contracts -- https://github.com/valorem-labs-inc/evm-blackjack
+## Components
+1. Protocol -- https://github.com/valorem-labs-inc/evm-blackjack
 2. Frontend -- https://github.com/valorem-labs-inc/evm-blackjack-ui
 3. Dynamic discrete random variates -- https://github.com/valorem-labs-inc/LibDDRV
 
-## [Get in touch](https://twitter.com/0xAlcibiades/) to try EVM Blackjack Beta or our LibDDRV repository!
+### [Get in touch](https://twitter.com/valoremxyz/) to try the LibDDRV library
