@@ -41,9 +41,17 @@ contract EVMBlackjackTest is Test {
     uint256 internal constant BETSIZE4 = 75 ether;
     uint256 internal constant BETSIZE5 = 100 ether;
 
+    address vrfCoordinator;
+    uint64 subscriptionId;
+    bytes32 keyHash;
+
     function setUp() public {
         chip = new Chip();
-        evmbj = new EVMBlackjack(chip);
+        evmbj = new EVMBlackjack(
+            chip, 
+            vrfCoordinator,
+            subscriptionId,
+            keyHash);
         chip.houseMint(address(evmbj));
 
         vm.deal(player, 10 ether);

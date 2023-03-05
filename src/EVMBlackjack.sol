@@ -2,6 +2,7 @@
 pragma solidity 0.8.16;
 
 import {IEVMBlackjack} from "../src/IEVMBlackjack.sol";
+import {ChainlinkRandomRequester} from "./utils/ChainlinkRandomRequester.sol";
 import {Chip} from "../src/Chip.sol";
 
 /// @title EVM Blackjack Protocol
@@ -10,7 +11,7 @@ import {Chip} from "../src/Chip.sol";
 /// @author Flip-Liquid
 /// @author nickadamson
 /// @notice TODO
-contract EVMBlackjack is IEVMBlackjack {
+contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
     /*//////////////////////////////////////////////////////////////
     //  Private Variables -- State
     //////////////////////////////////////////////////////////////*/
@@ -37,7 +38,9 @@ contract EVMBlackjack is IEVMBlackjack {
     //  Constructor
     //////////////////////////////////////////////////////////////*/
 
-    constructor(Chip _chip) {
+    constructor(Chip _chip, address _coordinator, uint64 _subscriptionId, bytes32 _keyHash)
+        ChainlinkRandomRequester(_coordinator, _subscriptionId, _keyHash)
+    {
         chip = _chip;
     }
 
