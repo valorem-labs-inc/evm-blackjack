@@ -14,7 +14,7 @@ interface IEVMBlackjack {
     //  Events
     //////////////////////////////////////////////////////////////*/
 
-    event BetPlaced(address indexed player, uint256 betSize, bytes32 requestId);
+    event BetPlaced(address indexed player, uint256 betSize, uint256 requestId);
     event PlayerCardDealt(address indexed player, uint8 card, uint8 handIndex);
     event DealerCardDealt(address indexed player, uint8 card);
     event InsuranceTaken(address indexed player, bool take);
@@ -40,9 +40,7 @@ interface IEVMBlackjack {
         READY_FOR_BET,
         WAITING_FOR_RANDOMNESS,
         READY_FOR_INSURANCE,
-        READY_FOR_PLAYER_ACTION,
-        DEALER_ACTION,
-        PAYOUTS
+        READY_FOR_PLAYER_ACTION
     }
 
     enum Action {
