@@ -1,39 +1,13 @@
-# <h1 align="center"> Forge Template </h1>
+# ♠️❤️ EVM Blackjack ♣️♦️
 
-**Template repository for getting started quickly with Foundry projects**
+_A provably fair, on-chain blackjack game, showcasing our new open source repository for dynamic discrete random variate generation_
 
-![Github Actions](https://github.com/foundry-rs/forge-template/workflows/CI/badge.svg)
+- 🃏 Play **blackjack on-chain** with our just-for-fun CHIP ERC20 token
 
-## Getting Started
+- 🎁 Create **provably fair** NFT drops/reveals
 
-Click "Use this template" on [GitHub](https://github.com/foundry-rs/forge-template) to create a new repository with this repo as the initial state.
+- 🗡 Generate **random values** for game items
 
-Or, if your repo already exists, run:
-```sh
-forge init
-forge build
-forge test
-```
+- 🧮 Use probabilistic weighting in **DeFi applications**
 
-## Writing your first test
-
-All you need is to `import forge-std/Test.sol` and then inherit it from your test contract. Forge-std's Test contract comes with a pre-instatiated [cheatcodes environment](https://book.getfoundry.sh/cheatcodes/), the `vm`. It also has support for [ds-test](https://book.getfoundry.sh/reference/ds-test.html)-style logs and assertions. Finally, it supports Hardhat's [console.log](https://github.com/brockelmore/forge-std/blob/master/src/console.sol). The logging functionalities require `-vvvv`.
-
-```solidity
-pragma solidity 0.8.10;
-
-import "forge-std/Test.sol";
-
-contract ContractTest is Test {
-    function testExample() public {
-        vm.roll(100);
-        console.log(1);
-        emit log("hi");
-        assertTrue(true);
-    }
-}
-```
-
-## Development
-
-This project uses [Foundry](https://getfoundry.sh). See the [book](https://book.getfoundry.sh/getting-started/installation.html) for instructions on how to install and use Foundry.
+[Get in touch](https://twitter.com/0xAlcibiades/) to try out our Beta or use our LibDDRV repository!
