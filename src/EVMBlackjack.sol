@@ -65,17 +65,24 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
 
         uint8 raw = card % 13;
 
-        return (raw == 0 || raw >= 10) ? 10 : raw;
+        if (raw == 0) {
+            return 1;
+        } if (raw >= 10) {
+            return 10;
+        } else {
+            return raw + 1;
+        }
     }
 
     function determineHandScore(uint8[] memory cards) public pure returns (uint8 score) {
         uint8 aceCount = 0;
         for (uint256 i = 0; i < cards.length; i++) {
-            uint8 card = cards[i];
-            if (card == 1) {
+            uint8 cardRaw = cards[i];
+            uint8 cardValue = convertCardToValue(cardRaw);
+            if (cardValue == 1) {
                 aceCount++;
             } else {
-                score += convertCardToValue(card);
+                score += cardValue;
             }
         }
 
@@ -138,7 +145,6 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
                 // player turn
                 game.state = State.READY_FOR_PLAYER_ACTION;
             }
-            game.state = State.READY_FOR_PLAYER_ACTION;
         } else if (game.lastAction == Action.STAND) {
             // Dealer's turn
             // Deal dealer's cards until they hit a soft 17
@@ -163,16 +169,18 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
                     game.playerHands[0].betSize);
             } else if (dealerScore == 21) {
                 // check insurance, dealer win otherwise
-                chip.transferFrom(
-                    address(this),
-                    player,
-                    2 * game.insurance);
-            } else if (dealerScore > playerScore) {
+                if (game.insurance != 0) {
+                    chip.transferFrom(
+                        address(this),
+                        player,
+                        2 * game.insurance);
+                }
+            } 
+            // else if (dealerScore > playerScore)
                 // dealer win
                 // reset player hand
-                delete game.playerHands[0];
-                game.state = State.READY_FOR_BET;
-            }
+            game.state = State.READY_FOR_BET;
+            delete game.playerHands[0];
         } else if (game.lastAction == Action.SPLIT) {
             // Deal 2 cards to the previous and the new split hand
             // TODO(Support splitting)
