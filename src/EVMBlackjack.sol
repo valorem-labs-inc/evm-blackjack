@@ -67,7 +67,8 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
 
         if (raw == 0) {
             return 1;
-        } if (raw >= 10) {
+        }
+        if (raw >= 10) {
             return 10;
         } else {
             return raw + 1;
@@ -105,7 +106,7 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
     }
 
     // TODO: only coordinator
-    function fulfillRandomness(uint256 _requestId, uint256[] memory _randomWords) public returns (uint256){
+    function fulfillRandomness(uint256 _requestId, uint256[] memory _randomWords) public returns (uint256) {
         // Check the request id is valid.
         address player = randomnessRequests[_requestId];
 
@@ -133,10 +134,7 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
             uint8 playerScore = determineHandScore(game.playerHands[0].cards);
             if (playerScore == 21) {
                 // player blackjack
-                chip.transferFrom(
-                    address(this),
-                    player,
-                    (3 * game.playerHands[0].betSize) / 2);
+                chip.transferFrom(address(this), player, (3 * game.playerHands[0].betSize) / 2);
                 // TODO(handle push)
                 // reset player hand
                 delete game.playerHands[0];
@@ -157,28 +155,19 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
             uint8 dealerScore = determineHandScore(game.dealerCards);
             if (dealerScore > 21 || playerScore > dealerScore) {
                 // player win
-                chip.transferFrom(
-                    address(this),
-                    player,
-                    2 * game.playerHands[0].betSize);
+                chip.transferFrom(address(this), player, 2 * game.playerHands[0].betSize);
             } else if (playerScore == dealerScore) {
                 // tie
-                chip.transferFrom(
-                    address(this),
-                    player,
-                    game.playerHands[0].betSize);
+                chip.transferFrom(address(this), player, game.playerHands[0].betSize);
             } else if (dealerScore == 21) {
                 // check insurance, dealer win otherwise
                 if (game.insurance != 0) {
-                    chip.transferFrom(
-                        address(this),
-                        player,
-                        2 * game.insurance);
+                    chip.transferFrom(address(this), player, 2 * game.insurance);
                 }
-            } 
+            }
             // else if (dealerScore > playerScore)
-                // dealer win
-                // reset player hand
+            // dealer win
+            // reset player hand
             game.state = State.READY_FOR_BET;
             delete game.playerHands[0];
         } else if (game.lastAction == Action.SPLIT) {
@@ -207,14 +196,20 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
         return 0;
     }
 
-    function dealPlayerCard(address player, uint256 seed, Game storage game, Forest storage shoe) internal returns (uint8) {
+    function dealPlayerCard(address player, uint256 seed, Game storage game, Forest storage shoe)
+        internal
+        returns (uint8)
+    {
         uint8 _card = uint8(LibDDRV.generate(shoe, seed));
         game.playerHands[0].cards.push(_card);
 
         emit PlayerCardDealt(player, _card, 0);
     }
 
-    function dealDealerCard(address player, uint256 seed, Game storage game, Forest storage shoe) internal returns (uint8) {
+    function dealDealerCard(address player, uint256 seed, Game storage game, Forest storage shoe)
+        internal
+        returns (uint8)
+    {
         uint8 _card = uint8(LibDDRV.generate(shoe, seed));
         game.dealerCards.push(_card);
 
@@ -253,7 +248,7 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
     function initShoe() internal {
         Forest storage shoe = shoes[msg.sender];
         uint256[] memory weights = new uint256[](52);
-        for (uint i = 0; i < 52; i++) {
+        for (uint256 i = 0; i < 52; i++) {
             weights[i] = SHOE_STARTING_COUNT;
         }
         LibDDRV.preprocess(weights, shoe);
@@ -306,8 +301,7 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
             // Update game state.
             game.state = State.WAITING_FOR_RANDOMNESS;
             game.lastAction = Action.HIT;
-        }
-         else if (action == Action.STAND) {
+        } else if (action == Action.STAND) {
             game.state = State.WAITING_FOR_RANDOMNESS;
             game.lastAction = Action.HIT;
         } else {

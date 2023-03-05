@@ -792,7 +792,7 @@ contract EVMBlackjackTest is Test {
     /*//////////////////////////////////////////////////////////////
     //  Payouts
     //////////////////////////////////////////////////////////////*/
-/*
+    /*
     function test_determineHandOutcome_playerWins() public {
         // Hand 1: Player Win
         // Player Hand: TT
