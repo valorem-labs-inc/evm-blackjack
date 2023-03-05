@@ -3,20 +3,21 @@ pragma solidity 0.8.16;
 
 import "forge-std/Test.sol";
 
-import {Chip} from "../src/Chip.sol";
 import "../src/EVMBlackjack.sol";
 
 // DONE Deploy script
 // TODO Split
 // DONE Remove Split Aces
-// TODO Maybe Insurance
 // DONE Randomness ID => Player Address
 // TODO Randomness ABI, use actual Chainlink VRF v2
 // DONE Randomness at end of takeAction (except Insurance)
+// TODO Integrate LibDDRV
 // TODO Randomness card generation
 // TODO Stand, revert if we hit the Else block
 // TODO Dealer action, Hand valuation
 // TODO Payouts
+// TODO Replace shoeCount with Shoe struct
+// TODO Add cut card functionality
 // TODO Reshuffle shoe
 
 /// @title EVM Blackjack Protocol tests
@@ -304,6 +305,14 @@ contract EVMBlackjackTest is Test {
         assertEq(game.shoeCount, previousGame.shoeCount - 2);
     }
 
+    // function testRevert_splitAces_whenNotPairOfAces() public {
+
+    // }
+
+    // function testRevert_splitAces_thenSplit() public {
+
+    // }
+
     /*//////////////////////////////////////////////////////////////
     //  Player Action -- Split
     //////////////////////////////////////////////////////////////*/
@@ -344,6 +353,188 @@ contract EVMBlackjackTest is Test {
         assertEq(game.state, IEVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State");
         assertEq(game.shoeCount, previousGame.shoeCount - 2);
     }
+
+    function test_split_thenDD_thenDD() public withChips(player) withApproval(player) {
+        vm.prank(player);
+        bytes32 requestId = evmbj.placeBet(BETSIZE1);
+        evmbj.fulfillRandomness(requestId, keccak256("pair"));
+
+        uint256 expectedShoeCount = SHOE_STARTING_COUNT - 3;
+
+        IEVMBlackjack.Game memory game = evmbj.getGame(player);
+        assertEq(game.state, IEVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State after bet");
+        assertEq(game.lastAction, IEVMBlackjack.Action.NO_ACTION, "Action after bet");
+        assertEq(game.totalPlayerHands, 1, "TPH after bet");
+        assertEq(game.activePlayerHand, 0, "APH after bet");
+        assertEq(game.shoeCount, expectedShoeCount, "Shoe count after bet");
+        assertEq(game.playerHands[0].cards.length, 2, "Hand 1 length after bet");
+
+        vm.prank(player);
+        requestId = evmbj.takeAction(IEVMBlackjack.Action.SPLIT);
+        evmbj.fulfillRandomness(requestId, keccak256("split"));
+
+        game = evmbj.getGame(player);
+        assertEq(game.state, IEVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State after split");
+        assertEq(game.lastAction, IEVMBlackjack.Action.SPLIT, "Action after split");
+        assertEq(game.totalPlayerHands, 2, "TPH after split");
+        assertEq(game.activePlayerHand, 0, "APH after split");
+        expectedShoeCount -= 2;
+        assertEq(game.shoeCount, expectedShoeCount, "Shoe count after split");
+        assertEq(game.playerHands[0].cards.length, 2, "Hand 1 length after split");
+        assertEq(game.playerHands[1].cards.length, 2, "Hand 2 length after split");
+
+        vm.prank(player);
+        requestId = evmbj.takeAction(IEVMBlackjack.Action.DOUBLE_DOWN);
+        evmbj.fulfillRandomness(requestId, keccak256(""));
+
+        game = evmbj.getGame(player);
+        assertEq(game.state, IEVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State after double 1");
+        assertEq(game.lastAction, IEVMBlackjack.Action.DOUBLE_DOWN, "Action after double 1");
+        assertEq(game.totalPlayerHands, 2, "TPH after double 1");
+        assertEq(game.activePlayerHand, 1, "APH after double 1");
+        expectedShoeCount--;
+        assertEq(game.shoeCount, expectedShoeCount, "Shoe count after double 1");
+        assertEq(game.playerHands[0].cards.length, 3, "Hand 1 length after double 1");
+        assertEq(game.playerHands[1].cards.length, 2, "Hand 2 length after double 1");
+
+        vm.prank(player);
+        requestId = evmbj.takeAction(IEVMBlackjack.Action.DOUBLE_DOWN);
+        evmbj.fulfillRandomness(requestId, keccak256(""));
+
+        game = evmbj.getGame(player);
+        assertEq(game.state, IEVMBlackjack.State.DEALER_ACTION, "State after double 2");
+        assertEq(game.lastAction, IEVMBlackjack.Action.DOUBLE_DOWN, "Action after double 2");
+        assertEq(game.totalPlayerHands, 2, "TPH after double 2");
+        assertEq(game.activePlayerHand, 2, "APH after double 2");
+        expectedShoeCount--;
+        assertEq(game.shoeCount, expectedShoeCount, "Shoe count after double 2");
+        assertEq(game.playerHands[0].cards.length, 3, "Hand 1 length after double 2");
+        assertEq(game.playerHands[1].cards.length, 3, "Hand 2 length after double 2");
+    }
+
+    function test_split_thenStand_thenStand() public withChips(player) withApproval(player) {
+        vm.prank(player);
+        bytes32 requestId = evmbj.placeBet(BETSIZE1);
+        evmbj.fulfillRandomness(requestId, keccak256("pair"));
+
+        uint256 expectedShoeCount = SHOE_STARTING_COUNT - 3;
+
+        IEVMBlackjack.Game memory game = evmbj.getGame(player);
+        assertEq(game.state, IEVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State after bet");
+        assertEq(game.lastAction, IEVMBlackjack.Action.NO_ACTION, "Action after bet");
+        assertEq(game.totalPlayerHands, 1, "TPH after bet");
+        assertEq(game.activePlayerHand, 0, "APH after bet");
+        assertEq(game.shoeCount, expectedShoeCount, "Shoe count after bet");
+        assertEq(game.playerHands[0].cards.length, 2, "Hand 1 length after bet");
+
+        vm.prank(player);
+        requestId = evmbj.takeAction(IEVMBlackjack.Action.SPLIT);
+        evmbj.fulfillRandomness(requestId, keccak256("split"));
+
+        game = evmbj.getGame(player);
+        assertEq(game.state, IEVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State after split");
+        assertEq(game.lastAction, IEVMBlackjack.Action.SPLIT, "Action after split");
+        assertEq(game.totalPlayerHands, 2, "TPH after split");
+        assertEq(game.activePlayerHand, 0, "APH after split");
+        expectedShoeCount -= 2;
+        assertEq(game.shoeCount, expectedShoeCount, "Shoe count after split");
+        assertEq(game.playerHands[0].cards.length, 2, "Hand 1 length after split");
+        assertEq(game.playerHands[1].cards.length, 2, "Hand 2 length after split");
+
+        vm.prank(player);
+        requestId = evmbj.takeAction(IEVMBlackjack.Action.STAND);
+
+        game = evmbj.getGame(player);
+        assertEq(game.state, IEVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State after stand 1");
+        assertEq(game.lastAction, IEVMBlackjack.Action.STAND, "Action after stand 1");
+        assertEq(game.totalPlayerHands, 2, "TPH after stand 1");
+        assertEq(game.activePlayerHand, 1, "APH after stand 1");
+        assertEq(game.shoeCount, expectedShoeCount, "Shoe count after stand 1"); // no change
+        assertEq(game.playerHands[0].cards.length, 2, "Hand 1 length after stand 1"); // no change
+        assertEq(game.playerHands[1].cards.length, 2, "Hand 2 length after stand 1"); // no change
+
+        vm.prank(player);
+        requestId = evmbj.takeAction(IEVMBlackjack.Action.STAND);
+
+        game = evmbj.getGame(player);
+        assertEq(game.state, IEVMBlackjack.State.DEALER_ACTION, "State after stand 2");
+        assertEq(game.lastAction, IEVMBlackjack.Action.STAND, "Action after stand 2");
+        assertEq(game.totalPlayerHands, 2, "TPH after stand 2");
+        assertEq(game.activePlayerHand, 2, "APH after stand 2");
+        assertEq(game.shoeCount, expectedShoeCount, "Shoe count after stand 2"); // no change
+        assertEq(game.playerHands[0].cards.length, 2, "Hand 1 length after stand 2"); // no change
+        assertEq(game.playerHands[1].cards.length, 2, "Hand 2 length after stand 2"); // no change
+    }
+
+    function test_split_thenHitAndStand_thenHitAndStand() public withChips(player) withApproval(player) {}
+
+    // function test_split_andSplit_thenDD_thenDD_thenDD() public withChips(player) withApproval(player) {
+    //     vm.prank(player);
+    //     bytes32 requestId = evmbj.placeBet(BETSIZE1);
+    //     evmbj.fulfillRandomness(requestId, keccak256("pair"));
+
+    //     uint256 expectedShoeCount = STARTING_SHOE_COUNT - 3;
+
+    //     IEVMBlackjack.Game memory game = evmbj.getGame(player);
+    //     assertEq(game.lastAction, IEVMBlackjack.Action.SPLIT);
+    //     assertEq(game.totalPlayerHands, 1);
+    //     assertEq(game.activePlayerHand, 0);
+    //     assertEq(game.shoeCount, --expectedShoeCount);
+
+    //     vm.prank(player);
+    //     requestId = evmbj.takeAction(IEVMBlackjack.Action.SPLIT);
+    //     evmbj.fulfillRandomness(requestId, keccak256("pair"));
+
+    //     game = evmbj.getGame(player);
+    //     assertEq(game.lastAction, IEVMBlackjack.Action.SPLIT);
+    //     assertEq(game.totalPlayerHands, 2);
+    //     assertEq(game.activePlayerHand, 0);
+    //     assertEq(game.shoeCount, --expectedShoeCount);
+
+    //     vm.prank(player);
+    //     requestId = evmbj.takeAction(IEVMBlackjack.Action.SPLIT);
+    //     evmbj.fulfillRandomness(requestId, keccak256("pair"));
+
+    //     game = evmbj.getGame(player);
+    //     assertEq(game.lastAction, IEVMBlackjack.Action.SPLIT);
+    //     assertEq(game.totalPlayerHands, 3);
+    //     assertEq(game.activePlayerHand, 0);
+    //     assertEq(game.shoeCount, --expectedShoeCount);
+
+    //     vm.prank(player);
+    //     requestId = evmbj.takeAction(IEVMBlackjack.Action.DOUBLE_DOWN);
+    //     evmbj.fulfillRandomness(requestId, keccak256(""));
+
+    //     game = evmbj.getGame(player);
+    //     assertEq(game.lastAction, IEVMBlackjack.Action.DOUBLE_DOWN);
+    //     assertEq(game.totalPlayerHands, 3);
+    //     assertEq(game.activePlayerHand, 1);
+    //     assertEq(game.shoeCount, --expectedShoeCount);
+    // }
+
+    // function test_split_andSplit_thenHitAndStand_thenHitAndStand_thenHitAndStand() public withChips(player) withApproval(player) {
+
+    // }
+
+    // function test_split_andSplit_thenStand_thenStand_thenStand() public withChips(player) withApproval(player) {
+
+    // }
+
+    // function test_split_andSplit_andSplit_thenDD_thenDD_thenDD_thenDD() public withChips(player) withApproval(player) {
+
+    // }
+
+    // function test_split_andSplit_andSplit_thenHitAndStand_thenHitAndStand_thenHitAndStand_thenHitAndStand() public withChips(player) withApproval(player) {
+
+    // }
+
+    // function test_split_andSplit_andSplit_thenStand_thenStand_thenStand_thenStand_thenStand() public withChips(player) withApproval(player) {
+
+    // }
+
+    // function testRevert_split_andSplit_andSplit_andSplit_andSplit() public withChips(player) withApproval(player) {
+
+    // }
 
     /*//////////////////////////////////////////////////////////////
     //  Player Action -- Double Down

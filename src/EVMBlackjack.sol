@@ -92,6 +92,8 @@ contract EVMBlackjack is IEVMBlackjack {
             // ace          -- dealer gets A  (0)
             // other        -- dealer gets 2  (1)
 
+            game.totalPlayerHands++;
+
             // We are at initial deal state, so
             // Deal player card 1,
             if (_randomness == keccak256("pair of aces")) {
@@ -130,24 +132,40 @@ contract EVMBlackjack is IEVMBlackjack {
                 && isAce(game.playerHands[0].cards[1])
         ) {
             // Player's last action was split aces, so we handle and go to Dealer Action.
-            dealPlayerCard(player, 50, 0);
-            dealPlayerCard(player, 51, 0);
+            dealPlayerCard(player, 50, 0); // TEMP
+            dealPlayerCard(player, 51, 1);
 
             game.shoeCount -= 2;
             game.state = State.DEALER_ACTION;
         } else if (game.lastAction == Action.SPLIT) {
             // Player's last action was split, so we handle and go to Ready for Player Action.
-            dealPlayerCard(player, 50, 0);
-            dealPlayerCard(player, 51, 0);
+            dealPlayerCard(player, 32, 0);
+            dealPlayerCard(player, 33, 1);
 
             game.shoeCount -= 2;
             game.state = State.READY_FOR_PLAYER_ACTION;
         } else if (game.lastAction == Action.DOUBLE_DOWN) {
             // Player's last action was double down, so we handle and go to Dealer Action.
-            dealPlayerCard(player, 15, 0);
+            if (game.totalPlayerHands == 1) {
+                dealPlayerCard(player, 15, 0);
 
-            game.shoeCount--;
-            game.state = State.DEALER_ACTION;
+                game.shoeCount--;
+                game.state = State.DEALER_ACTION;
+            } else if (game.totalPlayerHands == 2 && game.activePlayerHand == 0) {
+                dealPlayerCard(player, 15, 0);
+
+                game.shoeCount--;
+                game.activePlayerHand++;
+                game.state = State.READY_FOR_PLAYER_ACTION;
+            } else if (game.totalPlayerHands == 2 && game.activePlayerHand == 1) {
+                dealPlayerCard(player, 15, 1);
+
+                game.shoeCount--;
+                game.activePlayerHand++;
+                game.state = State.DEALER_ACTION;
+            } else {
+                revert InvalidAction();
+            }
         } else if (game.lastAction == Action.HIT) {
             // Player's last action was hit, so we handle and go to Ready for Player Action.
             dealPlayerCard(player, 25, 0);
@@ -158,7 +176,7 @@ contract EVMBlackjack is IEVMBlackjack {
             //
         }
 
-        // Cleanup the handled randomness request.
+        // Cleanup the randomness request after handling.
         delete randomnessRequests[_requestId];
     }
 
@@ -247,6 +265,11 @@ contract EVMBlackjack is IEVMBlackjack {
             game.totalPlayerHands++;
             game.playerHands.push(Hand({cards: new uint8[](0), betSize: betSize}));
 
+            // Split hand index 0.
+            uint8 card = games[msg.sender].playerHands[0].cards[1];
+            games[msg.sender].playerHands[0].cards.pop();
+            games[msg.sender].playerHands[1].cards.push(card);
+
             // Update game state.
             game.state = State.WAITING_FOR_RANDOMNESS;
             game.lastAction = Action.SPLIT;
@@ -271,9 +294,23 @@ contract EVMBlackjack is IEVMBlackjack {
             game.state = State.WAITING_FOR_RANDOMNESS;
             game.lastAction = Action.HIT;
         } else if (action == Action.STAND) {
-            // Update game state.
-            game.state = State.DEALER_ACTION;
-            game.lastAction = Action.STAND;
+            if (game.totalPlayerHands == 1) {
+                // Update game state.
+                game.state = State.DEALER_ACTION;
+                game.lastAction = Action.STAND;
+            } else if (game.totalPlayerHands == 2 && game.activePlayerHand == 0) {
+                // Update game state.
+                game.activePlayerHand++;
+                game.state = State.READY_FOR_PLAYER_ACTION;
+                game.lastAction = Action.STAND;
+            } else if (game.totalPlayerHands == 2 && game.activePlayerHand == 1) {
+                // Update game state.
+                game.activePlayerHand++;
+                game.state = State.DEALER_ACTION;
+                game.lastAction = Action.STAND;
+            } else {
+                revert InvalidAction();
+            }
         } else {
             revert InvalidAction();
         }

@@ -50,6 +50,17 @@ interface IEVMBlackjack {
         STAND
     }
 
+    struct Shoe {
+        uint8[52] cardBuckets;
+        uint16 shoeCount;
+        uint16 cutCardLocation;
+    }
+
+    struct Hand {
+        uint8[] cards;
+        uint256 betSize;
+    }
+
     struct Game {
         State state;
         uint16 shoeCount;
@@ -59,11 +70,6 @@ interface IEVMBlackjack {
         uint8 totalPlayerHands;
         uint8 activePlayerHand;
         Hand[] playerHands;
-    }
-
-    struct Hand {
-        uint8[] cards;
-        uint256 betSize;
     }
 
     /*//////////////////////////////////////////////////////////////
