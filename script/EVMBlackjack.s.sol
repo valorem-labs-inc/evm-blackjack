@@ -6,7 +6,7 @@ import "forge-std/Script.sol";
 import "../src/Chip.sol";
 import "../src/EVMBlackjack.sol";
 
-// forge script EVMBlackjackDeployScript --rpc-url=$SEPOLIA_RPC_URL --broadcast --slow --verify "$ETHERSCAN_API_KEY" --chain-id=11155111 --watch
+// forge script EVMBlackjackDeployScript --rpc-url=$RPC_URL --broadcast --slow --verify "$ETHERSCAN_API_KEY" --chain-id=$CHAIN_ID --watch
 contract EVMBlackjackDeployScript is Script {
     address vrfCoordinator;
     uint64 subscriptionId;
