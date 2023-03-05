@@ -12,7 +12,7 @@ interface IEVMBlackjack {
     //  Events
     //////////////////////////////////////////////////////////////*/
 
-    event BetPlaced(address indexed player, uint256 betSize);
+    event BetPlaced(address indexed player, uint256 betSize, bytes32 requestId);
     event PlayerCardDealt(address indexed player, uint8 card, uint8 handIndex);
     event DealerCardDealt(address indexed player, uint8 card);
     event InsuranceTaken(address indexed player, bool take);
@@ -26,6 +26,7 @@ interface IEVMBlackjack {
     //////////////////////////////////////////////////////////////*/
 
     error InvalidAction();
+    error InvalidCard(uint8 card);
     error InvalidBetSize(uint256 betSize);
     error InvalidRandomnessRequest(bytes32 requestId);
 
@@ -48,6 +49,12 @@ interface IEVMBlackjack {
         DOUBLE_DOWN,
         HIT,
         STAND
+    }
+
+    enum Outcome {
+        TIE,
+        PLAYER_WIN,
+        DEALER_WIN
     }
 
     struct Shoe {
