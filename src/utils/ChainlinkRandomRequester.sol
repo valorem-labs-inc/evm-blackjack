@@ -45,6 +45,13 @@ contract ChainlinkRandomRequester is VRFConsumerBaseV2, ConfirmedOwner, RandomRe
         keyHash = _keyHash;
     }
 
+    modifier onlyCoordinator() {
+        if (msg.sender != address(COORDINATOR)) {
+            revert("only coordinator");
+        }
+        _;
+    }
+
     // Assumes the subscription is funded sufficiently.
     function requestRandom(uint16 numWords, function (uint256, uint256[] memory) internal returns (uint256) f)
         internal
@@ -60,7 +67,7 @@ contract ChainlinkRandomRequester is VRFConsumerBaseV2, ConfirmedOwner, RandomRe
         return requestId;
     }
 
-    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
+    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override onlyCoordinator {
         fulfillRandom(requestId, randomWords);
     }
 }
