@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
+import "libddrv/LibDDRV.sol";
+
 /// @title EVM Blackjack Protocol
 /// @author neodaoist
 /// @author 0xAlcibiades

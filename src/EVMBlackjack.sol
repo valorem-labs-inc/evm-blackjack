@@ -24,6 +24,9 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
     /// @dev Player address => Game
     mapping(address => Game) internal games;
 
+    /// @dev Player address => deck/shoe
+    mapping(address => Forest) internal shoes;
+
     /// @dev Randomness request id => Player address
     mapping(uint256 => address) internal randomnessRequests;
 
@@ -34,7 +37,8 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
     uint256 internal constant MINIMUM_BET_SIZE = 10 ether;
     uint256 internal constant MAXIMUM_BET_SIZE = 100 ether;
 
-    uint16 internal constant SHOE_STARTING_COUNT = 52 * 6;
+    uint16 internal constant DECK_COUNT = 52;
+    uint16 internal constant SHOE_STARTING_COUNT = 6;
 
     /*//////////////////////////////////////////////////////////////
     //  Constructor
@@ -91,7 +95,7 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
         }
 
         // Determine what to do with randomness...
-        if (game.shoeCount == SHOE_STARTING_COUNT) {
+        if (game.shoeCount == SHOE_STARTING_COUNT * DECK_COUNT) {
             // seed
             // pair of aces -- player gets AA (13, 26)
             // pair         -- player gets 77 (6, 19)
@@ -188,6 +192,10 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
         delete randomnessRequests[_requestId];
     }
 
+    function dealCard(Forest storage forest, uint256 seed) internal returns (uint8) {
+
+    }
+
     function dealPlayerCard(address _player, uint8 _card, uint8 _handIndex) internal {
         games[_player].playerHands[_handIndex].cards.push(_card);
 
@@ -218,10 +226,24 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
         game.shoeCount = (game.shoeCount == 0) ? SHOE_STARTING_COUNT : game.shoeCount;
         game.playerHands.push(Hand({cards: new uint8[](0), betSize: _betSize}));
 
+        // Init shoe
+        if (shoes[msg.sender].weight == 0) {
+            initShoe();
+        }
+
         // Request randomness
         requestId = requestRandomness(msg.sender);
 
         emit BetPlaced(msg.sender, _betSize);
+    }
+
+    function initShoe() internal {
+        Forest storage shoe = shoes[msg.sender];
+        uint256[] memory weights = new uint256[](52);
+        for (uint i = 0; i < 52; i++) {
+            weights[i] = SHOE_STARTING_COUNT;
+        }
+        LibDDRV.preprocess(weights, shoe);
     }
 
     /*//////////////////////////////////////////////////////////////
