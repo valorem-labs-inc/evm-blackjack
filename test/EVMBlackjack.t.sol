@@ -77,10 +77,10 @@ contract EVMBlackjackTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_convertCardToValue(uint8 _input) public {
-        vm.assume(_input < 52);
+        vm.assume(_input > 0 && _input <= 52);
 
-        uint8 raw = _input % 13 + 1;
-        uint8 expected = (raw >= 10) ? 10 : raw;
+        uint8 raw = _input % 13;
+        uint8 expected = (raw == 0 || raw >= 10) ? 10 : raw;
 
         assertEq(evmbj.convertCardToValue(_input), expected);
     }
@@ -109,8 +109,8 @@ contract EVMBlackjackTest is Test {
     }
 
     function testEvent_placeBet() public withChips(player) withApproval(player) {
-        vm.expectEmit(true, true, true, true);
-        emit BetPlaced(player, BETSIZE1);
+        vm.expectEmit(true, true, true, false);
+        emit BetPlaced(player, BETSIZE1, bytes32(""));
 
         vm.prank(player);
         evmbj.placeBet(BETSIZE1);
@@ -685,6 +685,106 @@ contract EVMBlackjackTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
+    //  Dealer Action
+    //////////////////////////////////////////////////////////////*/
+
+    //
+
+    /*//////////////////////////////////////////////////////////////
+    //  Payouts
+    //////////////////////////////////////////////////////////////*/
+
+    function test_determineHandOutcome_playerWins() public {
+        // Hand 1: Player Win
+        // Player Hand: TT
+        // Dealer Hand: T7
+        uint8[] memory playerCards1 = new uint8[](2);
+        playerCards1[0] = 10;
+        playerCards1[1] = 23;
+        uint8[] memory dealerCards1 = new uint8[](2);
+        dealerCards1[0] = 36;
+        dealerCards1[1] = 7;
+        (IEVMBlackjack.Outcome outcome1, uint8 p, uint8 d) = evmbj.determineHandOutcome(playerCards1, dealerCards1);
+        assertEq(outcome1, IEVMBlackjack.Outcome.PLAYER_WIN, "Hand 1");
+    }
+
+    function test_determineHandOutcome_dealerWins() public {
+        // Hand 2: Dealer Win
+        // Player Hand: T5
+        // Dealer Hand: T7
+        uint8[] memory playerCards2 = new uint8[](2);
+        playerCards2[0] = 12;
+        playerCards2[1] = 18;
+        uint8[] memory dealerCards2 = new uint8[](2);
+        dealerCards2[0] = 36;
+        dealerCards2[1] = 7;
+        (IEVMBlackjack.Outcome outcome2, uint8 p, uint8 d) = evmbj.determineHandOutcome(playerCards2, dealerCards2);
+        assertEq(outcome2, IEVMBlackjack.Outcome.DEALER_WIN, "Hand 2");
+    }
+
+    function test_determineHandOutcome_tie() public {
+        // Hand 3: Tie
+        // Player Hand: T7
+        // Dealer Hand: T7
+        uint8[] memory playerCards3 = new uint8[](2);
+        playerCards3[0] = 13;
+        playerCards3[1] = 20;
+        uint8[] memory dealerCards3 = new uint8[](2);
+        dealerCards3[0] = 7;
+        dealerCards3[1] = 36;
+        (IEVMBlackjack.Outcome outcome3, uint8 p, uint8 d) = evmbj.determineHandOutcome(playerCards3, dealerCards3);
+        assertEq(outcome3, IEVMBlackjack.Outcome.TIE, "Hand 3");
+    }
+
+    function test_determineHandOutcome_playerWinsWithManyCards() public {
+        // Hand 4: Player Win with many cards
+        // Player Hand: 5473
+        // Dealer Hand: T7
+        uint8[] memory playerCards4 = new uint8[](4);
+        playerCards4[0] = 5;
+        playerCards4[1] = 4;
+        playerCards4[2] = 7;
+        playerCards4[3] = 18;
+        uint8[] memory dealerCards4 = new uint8[](2);
+        dealerCards4[0] = 36;
+        dealerCards4[1] = 7;
+        (IEVMBlackjack.Outcome outcome4, uint8 p, uint8 d) = evmbj.determineHandOutcome(playerCards4, dealerCards4);
+        assertEq(outcome4, IEVMBlackjack.Outcome.PLAYER_WIN, "Hand 4");
+    }
+
+    function test_determineHandOutcome_dealerWinsWithManyCards() public {
+        // Hand 5: Dealer Win with many cards
+        // Player Hand: T6
+        // Dealer Hand: T233
+        uint8[] memory playerCards5 = new uint8[](2);
+        playerCards5[0] = 11;
+        playerCards5[1] = 6;
+        uint8[] memory dealerCards5 = new uint8[](4);
+        dealerCards5[0] = 49;
+        dealerCards5[1] = 2;
+        dealerCards5[2] = 3;
+        dealerCards5[3] = 16;
+        (IEVMBlackjack.Outcome outcome5, uint8 p, uint8 d) = evmbj.determineHandOutcome(playerCards5, dealerCards5);
+        assertEq(outcome5, IEVMBlackjack.Outcome.DEALER_WIN, "Hand 5");
+    }
+
+    function test_determineHandOutcome_tieWithManyCards() public {
+        // Hand 6: Tie with many cards
+        // Player Hand: 8T
+        // Dealer Hand: T323
+        uint8[] memory playerCards6 = new uint8[](2);
+        playerCards6[0] = 8;
+        playerCards6[1] = 52;
+        uint8[] memory dealerCards6 = new uint8[](4);
+        dealerCards6[0] = 50;
+        dealerCards6[1] = 16;
+        dealerCards6[2] = 2;
+        dealerCards6[3] = 3;
+        (IEVMBlackjack.Outcome outcome6, uint8 p, uint8 d) = evmbj.determineHandOutcome(playerCards6, dealerCards6);
+        assertEq(outcome6, IEVMBlackjack.Outcome.TIE, "Hand 6");
+    }
+
+    /*//////////////////////////////////////////////////////////////
     //  Test Helpers
     //////////////////////////////////////////////////////////////*/
 
@@ -698,6 +798,10 @@ contract EVMBlackjackTest is Test {
     }
 
     function assertEq(IEVMBlackjack.Action a, IEVMBlackjack.Action b, string memory reason) internal {
+        assertEq(uint256(a), uint256(b), reason);
+    }
+
+    function assertEq(IEVMBlackjack.Outcome a, IEVMBlackjack.Outcome b, string memory reason) internal {
         assertEq(uint256(a), uint256(b), reason);
     }
 
@@ -718,7 +822,7 @@ contract EVMBlackjackTest is Test {
     //  Events
     //////////////////////////////////////////////////////////////*/
 
-    event BetPlaced(address indexed player, uint256 betSize);
+    event BetPlaced(address indexed player, uint256 betSize, bytes32 requestId);
     event PlayerCardDealt(address indexed player, uint8 card, uint8 handIndex);
     event DealerCardDealt(address indexed player, uint8 card);
     event InsuranceTaken(address indexed player, bool take);

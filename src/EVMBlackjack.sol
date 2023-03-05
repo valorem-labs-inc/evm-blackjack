@@ -50,12 +50,36 @@ contract EVMBlackjack is IEVMBlackjack {
     }
 
     function convertCardToValue(uint8 card) public pure returns (uint8) {
-        uint8 raw = card % 13 + 1;
+        if (card == 0 || card > 52) {
+            revert InvalidCard(card);
+        }
 
-        if (raw >= 10) {
-            return 10;
+        uint8 raw = card % 13;
+
+        return (raw == 0 || raw >= 10) ? 10 : raw;
+    }
+
+    function determineHandOutcome(uint8[] memory playerCards, uint8[] memory dealerCards)
+        public
+        pure
+        returns (Outcome outcome, uint8 playerTotal, uint8 dealerTotal)
+    {
+        uint8 playerTotal = 0;
+        for (uint256 i = 0; i < playerCards.length; i++) {
+            playerTotal += convertCardToValue(playerCards[i]);
+        }
+
+        uint8 dealerTotal = 0;
+        for (uint256 i = 0; i < dealerCards.length; i++) {
+            dealerTotal += convertCardToValue(dealerCards[i]);
+        }
+
+        if (playerTotal == dealerTotal) {
+            return (Outcome.TIE, playerTotal, dealerTotal);
+        } else if (playerTotal > dealerTotal) {
+            return (Outcome.PLAYER_WIN, playerTotal, dealerTotal);
         } else {
-            return raw;
+            return (Outcome.DEALER_WIN, playerTotal, dealerTotal);
         }
     }
 
@@ -213,7 +237,7 @@ contract EVMBlackjack is IEVMBlackjack {
         // Request randomness
         requestId = requestRandomness(msg.sender);
 
-        emit BetPlaced(msg.sender, _betSize);
+        emit BetPlaced(msg.sender, _betSize, requestId);
     }
 
     /*//////////////////////////////////////////////////////////////
