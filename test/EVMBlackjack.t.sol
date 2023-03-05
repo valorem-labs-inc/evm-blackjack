@@ -167,7 +167,7 @@ contract EVMBlackjackTest is Test {
         vm.prank(player);
         uint256 requestId = evmbj.placeBet(BETSIZE1);
         uint256[] memory words = new uint256[](1);
-        
+
         vm.prank(address(this));
         evmbj.fulfillRandomness(requestId, words);
 
@@ -189,7 +189,7 @@ contract EVMBlackjackTest is Test {
 
         vm.prank(player);
         uint256 requestId = evmbj.placeBet(BETSIZE1);
-        
+
         vm.prank(address(this));
         evmbj.fulfillRandomness(requestId, words);
 
@@ -214,7 +214,7 @@ contract EVMBlackjackTest is Test {
         emit DealerCardDealt(player, 1);
         vm.expectEmit(true, true, true, false);
         emit PlayerCardDealt(player, 14, 0);
- 
+
         vm.prank(address(this));
         evmbj.fulfillRandomness(requestId, words);
     }

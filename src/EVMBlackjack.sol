@@ -216,9 +216,7 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
         delete randomnessRequests[_requestId];
     }
 
-    function dealCard(Forest storage forest, uint256 seed) internal returns (uint8) {
-
-    }
+    function dealCard(Forest storage forest, uint256 seed) internal returns (uint8) {}
 
     function dealPlayerCard(address _player, uint8 _card, uint8 _handIndex) internal {
         games[_player].playerHands[_handIndex].cards.push(_card);
@@ -264,7 +262,7 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
     function initShoe() internal {
         Forest storage shoe = shoes[msg.sender];
         uint256[] memory weights = new uint256[](52);
-        for (uint i = 0; i < 52; i++) {
+        for (uint256 i = 0; i < 52; i++) {
             weights[i] = SHOE_STARTING_COUNT;
         }
         LibDDRV.preprocess(weights, shoe);
