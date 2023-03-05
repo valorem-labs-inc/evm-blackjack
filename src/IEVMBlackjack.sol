@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
+import "libddrv/LibDDRV.sol";
+
 /// @title EVM Blackjack Protocol
 /// @author neodaoist
 /// @author 0xAlcibiades
@@ -28,7 +30,7 @@ interface IEVMBlackjack {
     error InvalidAction();
     error InvalidCard(uint8 card);
     error InvalidBetSize(uint256 betSize);
-    error InvalidRandomnessRequest(bytes32 requestId);
+    error InvalidRandomnessRequest(uint256 requestId);
 
     /*//////////////////////////////////////////////////////////////
     //  Data Structures
@@ -85,9 +87,9 @@ interface IEVMBlackjack {
 
     function getGame(address player) external view returns (Game memory game);
 
-    function placeBet(uint256 betSize) external returns (bytes32 requestId);
+    function placeBet(uint256 betSize) external returns (uint256 requestId);
 
     function takeInsurance(bool take) external;
 
-    function takeAction(Action action) external returns (bytes32 requestId);
+    function takeAction(Action action) external returns (uint256 requestId);
 }

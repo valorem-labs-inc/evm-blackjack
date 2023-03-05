@@ -2,7 +2,7 @@
 pragma solidity 0.8.16;
 
 import "forge-std/Test.sol";
-
+import "chainlink/interfaces/VRFCoordinatorV2Interface.sol";
 import "../src/EVMBlackjack.sol";
 
 // DONE Deploy script
@@ -41,9 +41,25 @@ contract EVMBlackjackTest is Test {
     uint256 internal constant BETSIZE4 = 75 ether;
     uint256 internal constant BETSIZE5 = 100 ether;
 
+    address vrfCoordinator = address(0xFFFF);
+    uint64 subscriptionId = 111;
+    bytes32 keyHash = 0;
+
+    uint256 mockRequestId = 0xDEADBEEF;
+
     function setUp() public {
         chip = new Chip();
-        evmbj = new EVMBlackjack(chip);
+
+        vm.mockCall(
+            vrfCoordinator,
+            abi.encodeWithSelector(VRFCoordinatorV2Interface.getRequestConfig.selector),
+            abi.encode(1, 0, 0, 0)
+        );
+        evmbj = new EVMBlackjack(
+            chip, 
+            vrfCoordinator,
+            subscriptionId,
+            keyHash);
         chip.houseMint(address(evmbj));
 
         vm.deal(player, 10 ether);
@@ -51,6 +67,12 @@ contract EVMBlackjackTest is Test {
         vm.deal(player3, 10 ether);
         vm.deal(player4, 10 ether);
         vm.deal(player5, 10 ether);
+
+        vm.mockCall(
+            vrfCoordinator,
+            abi.encodeWithSelector(VRFCoordinatorV2Interface.requestRandomWords.selector),
+            abi.encode(mockRequestId)
+        );
     }
 
     modifier withChips(address _player) {
@@ -67,8 +89,12 @@ contract EVMBlackjackTest is Test {
 
     modifier readyForPlayerAction(address _player) {
         vm.prank(_player);
-        bytes32 requestId = evmbj.placeBet(BETSIZE1);
-        evmbj.fulfillRandomness(requestId, "");
+        uint256 requestId = evmbj.placeBet(BETSIZE1);
+        uint256[] memory words = new uint256[](1);
+        words[0] = uint256(keccak256(""));
+
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
         _;
     }
 
@@ -139,8 +165,11 @@ contract EVMBlackjackTest is Test {
 
     function test_xplaceBet_andFulfillRandomness_whenDealerShowsAce() public withChips(player) withApproval(player) {
         vm.prank(player);
-        bytes32 requestId = evmbj.placeBet(BETSIZE1);
-        evmbj.fulfillRandomness(requestId, keccak256("ace"));
+        uint256 requestId = evmbj.placeBet(BETSIZE1);
+        uint256[] memory words = new uint256[](1);
+        
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
 
         IEVMBlackjack.Game memory game = evmbj.getGame(player);
 
@@ -155,9 +184,14 @@ contract EVMBlackjackTest is Test {
         withChips(player)
         withApproval(player)
     {
+        uint256[] memory words = new uint256[](1);
+        words[0] = uint256(keccak256(""));
+
         vm.prank(player);
-        bytes32 requestId = evmbj.placeBet(BETSIZE1);
-        evmbj.fulfillRandomness(requestId, "");
+        uint256 requestId = evmbj.placeBet(BETSIZE1);
+        
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
 
         IEVMBlackjack.Game memory game = evmbj.getGame(player);
 
@@ -169,7 +203,9 @@ contract EVMBlackjackTest is Test {
 
     function testEvent_placeBet_andFulfillRandomness() public withChips(player) withApproval(player) {
         vm.prank(player);
-        bytes32 requestId = evmbj.placeBet(BETSIZE1);
+        uint256 requestId = evmbj.placeBet(BETSIZE1);
+        uint256[] memory words = new uint256[](1);
+        words[0] = uint256(keccak256(""));
 
         // TODO make log assertion less brittle once hardcoded cards are replaced
         vm.expectEmit(true, true, true, false);
@@ -178,8 +214,9 @@ contract EVMBlackjackTest is Test {
         emit DealerCardDealt(player, 1);
         vm.expectEmit(true, true, true, false);
         emit PlayerCardDealt(player, 14, 0);
-
-        evmbj.fulfillRandomness(requestId, "");
+ 
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -187,21 +224,27 @@ contract EVMBlackjackTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function testRevert_fulfillRandomness_whenRequestIdNotFound() public {
-        bytes32 badRequestId = keccak256("bad bad");
+        uint256 badRequestId = uint256(keccak256("bad bad"));
+        uint256[] memory words = new uint256[](1);
+        words[0] = badRequestId;
 
         vm.expectRevert(abi.encodeWithSelector(IEVMBlackjack.InvalidRandomnessRequest.selector, badRequestId));
-
-        evmbj.fulfillRandomness(badRequestId, keccak256("hey there"));
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(badRequestId, words);
     }
 
     function testRevert_fulfillRandomness_whenAlreadyHandled() public withChips(player) withApproval(player) {
         vm.prank(player);
-        bytes32 requestId = evmbj.placeBet(BETSIZE1);
-        evmbj.fulfillRandomness(requestId, keccak256("hey there"));
+        uint256 requestId = evmbj.placeBet(BETSIZE1);
+        uint256[] memory words = new uint256[](1);
+        words[0] = uint256(keccak256("hey there"));
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
 
         vm.expectRevert(abi.encodeWithSelector(IEVMBlackjack.InvalidRandomnessRequest.selector, requestId));
 
-        evmbj.fulfillRandomness(requestId, keccak256("hey there"));
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -210,8 +253,11 @@ contract EVMBlackjackTest is Test {
 
     function test_takeInsurance() public withChips(player) withApproval(player) {
         vm.prank(player);
-        bytes32 requestId = evmbj.placeBet(BETSIZE1);
-        evmbj.fulfillRandomness(requestId, keccak256("ace"));
+        uint256 requestId = evmbj.placeBet(BETSIZE1);
+        uint256[] memory words = new uint256[](1);
+        words[0] = uint256(keccak256("ace"));
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
 
         vm.prank(player);
         evmbj.takeInsurance(true);
@@ -227,8 +273,11 @@ contract EVMBlackjackTest is Test {
 
     function testEvent_takeInsurance() public withChips(player) withApproval(player) {
         vm.prank(player);
-        bytes32 requestId = evmbj.placeBet(BETSIZE1);
-        evmbj.fulfillRandomness(requestId, keccak256("ace"));
+        uint256 requestId = evmbj.placeBet(BETSIZE1);
+        uint256[] memory words = new uint256[](1);
+        words[0] = uint256(keccak256("ace"));
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
 
         vm.expectEmit(true, true, true, true);
         emit InsuranceTaken(player, true);
@@ -239,8 +288,11 @@ contract EVMBlackjackTest is Test {
 
     function test_declineInsurance() public withChips(player) withApproval(player) {
         vm.prank(player);
-        bytes32 requestId = evmbj.placeBet(BETSIZE1);
-        evmbj.fulfillRandomness(requestId, keccak256("ace"));
+        uint256 requestId = evmbj.placeBet(BETSIZE1);
+        uint256[] memory words = new uint256[](1);
+        words[0] = uint256(keccak256("ace"));
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
 
         vm.prank(player);
         evmbj.takeInsurance(false);
@@ -254,8 +306,13 @@ contract EVMBlackjackTest is Test {
 
     function testEvent_declineInsurance() public withChips(player) withApproval(player) {
         vm.prank(player);
-        bytes32 requestId = evmbj.placeBet(BETSIZE1);
-        evmbj.fulfillRandomness(requestId, keccak256("ace"));
+        uint256 requestId = evmbj.placeBet(BETSIZE1);
+        uint256[] memory words = new uint256[](1);
+        words[0] = uint256(keccak256("ace"));
+
+        emit log_named_address("evmbj owner:", evmbj.owner());
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
 
         vm.expectEmit(true, true, true, true);
         emit InsuranceTaken(player, false);
@@ -270,8 +327,11 @@ contract EVMBlackjackTest is Test {
 
     function test_splitAces() public withChips(player) withApproval(player) {
         vm.prank(player);
-        bytes32 requestId = evmbj.placeBet(BETSIZE1);
-        evmbj.fulfillRandomness(requestId, keccak256("pair of aces"));
+        uint256 requestId = evmbj.placeBet(BETSIZE1);
+        uint256[] memory words = new uint256[](1);
+        words[0] = uint256(keccak256("pair of aces"));
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
 
         IEVMBlackjack.Game memory previousGame = evmbj.getGame(player);
 
@@ -290,14 +350,19 @@ contract EVMBlackjackTest is Test {
 
     function test_splitAces_andFulfillRandomness() public withChips(player) withApproval(player) {
         vm.prank(player);
-        bytes32 requestId = evmbj.placeBet(BETSIZE1);
-        evmbj.fulfillRandomness(requestId, keccak256("pair of aces"));
+        uint256 requestId = evmbj.placeBet(BETSIZE1);
+        uint256[] memory words = new uint256[](1);
+        words[0] = uint256(keccak256("pair of aces"));
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
 
         IEVMBlackjack.Game memory previousGame = evmbj.getGame(player);
 
         vm.prank(player);
         requestId = evmbj.takeAction(IEVMBlackjack.Action.SPLIT);
-        evmbj.fulfillRandomness(requestId, keccak256(""));
+        words[0] = uint256(keccak256(""));
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
 
         IEVMBlackjack.Game memory game = evmbj.getGame(player);
 
@@ -319,8 +384,11 @@ contract EVMBlackjackTest is Test {
 
     function test_split() public withChips(player) withApproval(player) {
         vm.prank(player);
-        bytes32 requestId = evmbj.placeBet(BETSIZE1);
-        evmbj.fulfillRandomness(requestId, keccak256("pair"));
+        uint256 requestId = evmbj.placeBet(BETSIZE1);
+        uint256[] memory words = new uint256[](1);
+        words[0] = uint256(keccak256("pair"));
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
 
         IEVMBlackjack.Game memory previousGame = evmbj.getGame(player);
 
@@ -339,14 +407,19 @@ contract EVMBlackjackTest is Test {
 
     function test_split_andFulfillRandomness() public withChips(player) withApproval(player) {
         vm.prank(player);
-        bytes32 requestId = evmbj.placeBet(BETSIZE1);
-        evmbj.fulfillRandomness(requestId, keccak256("pair"));
+        uint256 requestId = evmbj.placeBet(BETSIZE1);
+        uint256[] memory words = new uint256[](1);
+        words[0] = uint256(keccak256("pair"));
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
 
         IEVMBlackjack.Game memory previousGame = evmbj.getGame(player);
 
         vm.prank(player);
         requestId = evmbj.takeAction(IEVMBlackjack.Action.SPLIT);
-        evmbj.fulfillRandomness(requestId, keccak256(""));
+        words[0] = uint256(keccak256(""));
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
 
         IEVMBlackjack.Game memory game = evmbj.getGame(player);
 
@@ -356,8 +429,11 @@ contract EVMBlackjackTest is Test {
 
     function test_split_thenDD_thenDD() public withChips(player) withApproval(player) {
         vm.prank(player);
-        bytes32 requestId = evmbj.placeBet(BETSIZE1);
-        evmbj.fulfillRandomness(requestId, keccak256("pair"));
+        uint256 requestId = evmbj.placeBet(BETSIZE1);
+        uint256[] memory words = new uint256[](1);
+        words[0] = uint256(keccak256("pair"));
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
 
         uint256 expectedShoeCount = SHOE_STARTING_COUNT - 3;
 
@@ -371,7 +447,9 @@ contract EVMBlackjackTest is Test {
 
         vm.prank(player);
         requestId = evmbj.takeAction(IEVMBlackjack.Action.SPLIT);
-        evmbj.fulfillRandomness(requestId, keccak256("split"));
+        words[0] = uint256(keccak256("split"));
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
 
         game = evmbj.getGame(player);
         assertEq(game.state, IEVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State after split");
@@ -385,7 +463,9 @@ contract EVMBlackjackTest is Test {
 
         vm.prank(player);
         requestId = evmbj.takeAction(IEVMBlackjack.Action.DOUBLE_DOWN);
-        evmbj.fulfillRandomness(requestId, keccak256(""));
+        words[0] = uint256(keccak256(""));
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
 
         game = evmbj.getGame(player);
         assertEq(game.state, IEVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State after double 1");
@@ -399,7 +479,9 @@ contract EVMBlackjackTest is Test {
 
         vm.prank(player);
         requestId = evmbj.takeAction(IEVMBlackjack.Action.DOUBLE_DOWN);
-        evmbj.fulfillRandomness(requestId, keccak256(""));
+        words[0] = uint256(keccak256(""));
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
 
         game = evmbj.getGame(player);
         assertEq(game.state, IEVMBlackjack.State.DEALER_ACTION, "State after double 2");
@@ -414,8 +496,11 @@ contract EVMBlackjackTest is Test {
 
     function test_split_thenStand_thenStand() public withChips(player) withApproval(player) {
         vm.prank(player);
-        bytes32 requestId = evmbj.placeBet(BETSIZE1);
-        evmbj.fulfillRandomness(requestId, keccak256("pair"));
+        uint256 requestId = evmbj.placeBet(BETSIZE1);
+        uint256[] memory words = new uint256[](1);
+        words[0] = uint256(keccak256("pair"));
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
 
         uint256 expectedShoeCount = SHOE_STARTING_COUNT - 3;
 
@@ -429,7 +514,9 @@ contract EVMBlackjackTest is Test {
 
         vm.prank(player);
         requestId = evmbj.takeAction(IEVMBlackjack.Action.SPLIT);
-        evmbj.fulfillRandomness(requestId, keccak256("split"));
+        words[0] = uint256(keccak256("split"));
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
 
         game = evmbj.getGame(player);
         assertEq(game.state, IEVMBlackjack.State.READY_FOR_PLAYER_ACTION, "State after split");
@@ -470,7 +557,8 @@ contract EVMBlackjackTest is Test {
 
     // function test_split_andSplit_thenDD_thenDD_thenDD() public withChips(player) withApproval(player) {
     //     vm.prank(player);
-    //     bytes32 requestId = evmbj.placeBet(BETSIZE1);
+    //     uint256 requestId = evmbj.placeBet(BETSIZE1);
+    //      vm.prank(address(this));
     //     evmbj.fulfillRandomness(requestId, keccak256("pair"));
 
     //     uint256 expectedShoeCount = STARTING_SHOE_COUNT - 3;
@@ -483,6 +571,7 @@ contract EVMBlackjackTest is Test {
 
     //     vm.prank(player);
     //     requestId = evmbj.takeAction(IEVMBlackjack.Action.SPLIT);
+    //     vm.prank(address(this));
     //     evmbj.fulfillRandomness(requestId, keccak256("pair"));
 
     //     game = evmbj.getGame(player);
@@ -493,6 +582,7 @@ contract EVMBlackjackTest is Test {
 
     //     vm.prank(player);
     //     requestId = evmbj.takeAction(IEVMBlackjack.Action.SPLIT);
+    //     vm.prank(address(this));
     //     evmbj.fulfillRandomness(requestId, keccak256("pair"));
 
     //     game = evmbj.getGame(player);
@@ -503,6 +593,7 @@ contract EVMBlackjackTest is Test {
 
     //     vm.prank(player);
     //     requestId = evmbj.takeAction(IEVMBlackjack.Action.DOUBLE_DOWN);
+    //     vm.prank(address(this));
     //     evmbj.fulfillRandomness(requestId, keccak256(""));
 
     //     game = evmbj.getGame(player);
@@ -569,11 +660,14 @@ contract EVMBlackjackTest is Test {
         readyForPlayerAction(player)
     {
         vm.prank(player);
-        bytes32 requestId = evmbj.takeAction(IEVMBlackjack.Action.DOUBLE_DOWN);
+        uint256 requestId = evmbj.takeAction(IEVMBlackjack.Action.DOUBLE_DOWN);
+        uint256[] memory words = new uint256[](1);
+        words[0] = uint256(keccak256(""));
 
         IEVMBlackjack.Game memory previousGame = evmbj.getGame(player);
 
-        evmbj.fulfillRandomness(requestId, "");
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
 
         IEVMBlackjack.Game memory game = evmbj.getGame(player);
 
@@ -588,14 +682,18 @@ contract EVMBlackjackTest is Test {
         withApproval(player)
         readyForPlayerAction(player)
     {
+        uint256[] memory words = new uint256[](1);
+        words[0] = uint256(keccak256(""));
+
         vm.prank(player);
-        bytes32 requestId = evmbj.takeAction(IEVMBlackjack.Action.DOUBLE_DOWN);
+        uint256 requestId = evmbj.takeAction(IEVMBlackjack.Action.DOUBLE_DOWN);
 
         // TODO make less brittle re log assertion and hardcoded card
         vm.expectEmit(true, true, true, false);
         emit PlayerCardDealt(player, 15, 0);
 
-        evmbj.fulfillRandomness(requestId, "");
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -628,11 +726,14 @@ contract EVMBlackjackTest is Test {
         readyForPlayerAction(player)
     {
         vm.prank(player);
-        bytes32 requestId = evmbj.takeAction(IEVMBlackjack.Action.HIT);
+        uint256 requestId = evmbj.takeAction(IEVMBlackjack.Action.HIT);
+        uint256[] memory words = new uint256[](1);
+        words[0] = uint256(keccak256(""));
 
         IEVMBlackjack.Game memory previousGame = evmbj.getGame(player);
 
-        evmbj.fulfillRandomness(requestId, "");
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
 
         IEVMBlackjack.Game memory game = evmbj.getGame(player);
 
@@ -647,14 +748,17 @@ contract EVMBlackjackTest is Test {
         withApproval(player)
         readyForPlayerAction(player)
     {
+        uint256[] memory words = new uint256[](1);
+        words[0] = uint256(keccak256(""));
         vm.prank(player);
-        bytes32 requestId = evmbj.takeAction(IEVMBlackjack.Action.HIT);
+        uint256 requestId = evmbj.takeAction(IEVMBlackjack.Action.HIT);
 
         // TODO make less brittle re log assertion and hardcoded card
         vm.expectEmit(true, true, true, false);
         emit PlayerCardDealt(player, 25, 0);
 
-        evmbj.fulfillRandomness(requestId, "");
+        vm.prank(address(this));
+        evmbj.fulfillRandomness(requestId, words);
     }
 
     /*//////////////////////////////////////////////////////////////

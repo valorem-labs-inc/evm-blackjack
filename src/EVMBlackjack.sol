@@ -2,7 +2,10 @@
 pragma solidity 0.8.16;
 
 import {IEVMBlackjack} from "../src/IEVMBlackjack.sol";
+import {ChainlinkRandomRequester} from "./utils/ChainlinkRandomRequester.sol";
 import {Chip} from "../src/Chip.sol";
+
+import "libddrv/LibDDRV.sol";
 
 /// @title EVM Blackjack Protocol
 /// @author neodaoist
@@ -10,7 +13,7 @@ import {Chip} from "../src/Chip.sol";
 /// @author Flip-Liquid
 /// @author nickadamson
 /// @notice TODO
-contract EVMBlackjack is IEVMBlackjack {
+contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
     /*//////////////////////////////////////////////////////////////
     //  Private Variables -- State
     //////////////////////////////////////////////////////////////*/
@@ -21,8 +24,11 @@ contract EVMBlackjack is IEVMBlackjack {
     /// @dev Player address => Game
     mapping(address => Game) internal games;
 
+    /// @dev Player address => deck/shoe
+    mapping(address => Forest) internal shoes;
+
     /// @dev Randomness request id => Player address
-    mapping(bytes32 => address) internal randomnessRequests;
+    mapping(uint256 => address) internal randomnessRequests;
 
     /*//////////////////////////////////////////////////////////////
     //  Private Variables -- Constant
@@ -31,13 +37,16 @@ contract EVMBlackjack is IEVMBlackjack {
     uint256 internal constant MINIMUM_BET_SIZE = 10 ether;
     uint256 internal constant MAXIMUM_BET_SIZE = 100 ether;
 
-    uint16 internal constant SHOE_STARTING_COUNT = 52 * 6;
+    uint16 internal constant DECK_COUNT = 52;
+    uint16 internal constant SHOE_STARTING_COUNT = 6;
 
     /*//////////////////////////////////////////////////////////////
     //  Constructor
     //////////////////////////////////////////////////////////////*/
 
-    constructor(Chip _chip) {
+    constructor(Chip _chip, address _coordinator, uint64 _subscriptionId, bytes32 _keyHash)
+        ChainlinkRandomRequester(_coordinator, _subscriptionId, _keyHash)
+    {
         chip = _chip;
     }
 
@@ -87,18 +96,21 @@ contract EVMBlackjack is IEVMBlackjack {
     //  Randomness
     //////////////////////////////////////////////////////////////*/
 
-    function requestRandomness(address _player) public returns (bytes32 requestId) {
-        requestId = bytes32(abi.encode(_player, block.timestamp)); // TEMP
+    function requestRandomness(address _player) public returns (uint256 requestId) {
+        requestId = requestRandom(1, fulfillRandomness);
         randomnessRequests[requestId] = _player;
     }
 
-    function fulfillRandomness(bytes32 _requestId, bytes32 _randomness) public {
+    // TODO: only coordinator
+    function fulfillRandomness(uint256 _requestId, uint256[] memory _randomWords) public returns (uint256) {
         address player = randomnessRequests[_requestId];
 
         if (player == address(0)) {
             revert InvalidRandomnessRequest(_requestId);
         }
 
+        bytes32 _randomness = bytes32(_randomWords[0]);
+        uint256 seed = _randomWords[0];
         Game storage game = games[player];
 
         if (game.state != State.WAITING_FOR_RANDOMNESS) {
@@ -107,7 +119,7 @@ contract EVMBlackjack is IEVMBlackjack {
         }
 
         // Determine what to do with randomness...
-        if (game.shoeCount == SHOE_STARTING_COUNT) {
+        if (game.shoeCount == SHOE_STARTING_COUNT * DECK_COUNT) {
             // seed
             // pair of aces -- player gets AA (13, 26)
             // pair         -- player gets 77 (6, 19)
@@ -204,6 +216,10 @@ contract EVMBlackjack is IEVMBlackjack {
         delete randomnessRequests[_requestId];
     }
 
+    function dealCard(Forest storage forest, uint256 seed) internal returns (uint8) {
+
+    }
+
     function dealPlayerCard(address _player, uint8 _card, uint8 _handIndex) internal {
         games[_player].playerHands[_handIndex].cards.push(_card);
 
@@ -220,7 +236,7 @@ contract EVMBlackjack is IEVMBlackjack {
     //  Place Bet
     //////////////////////////////////////////////////////////////*/
 
-    function placeBet(uint256 _betSize) public returns (bytes32 requestId) {
+    function placeBet(uint256 _betSize) public returns (uint256 requestId) {
         if (_betSize < MINIMUM_BET_SIZE || _betSize > MAXIMUM_BET_SIZE) {
             revert InvalidBetSize(_betSize);
         }
@@ -234,10 +250,24 @@ contract EVMBlackjack is IEVMBlackjack {
         game.shoeCount = (game.shoeCount == 0) ? SHOE_STARTING_COUNT : game.shoeCount;
         game.playerHands.push(Hand({cards: new uint8[](0), betSize: _betSize}));
 
+        // Init shoe
+        if (shoes[msg.sender].weight == 0) {
+            initShoe();
+        }
+
         // Request randomness
         requestId = requestRandomness(msg.sender);
 
         emit BetPlaced(msg.sender, _betSize, requestId);
+    }
+
+    function initShoe() internal {
+        Forest storage shoe = shoes[msg.sender];
+        uint256[] memory weights = new uint256[](52);
+        for (uint i = 0; i < 52; i++) {
+            weights[i] = SHOE_STARTING_COUNT;
+        }
+        LibDDRV.preprocess(weights, shoe);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -271,7 +301,7 @@ contract EVMBlackjack is IEVMBlackjack {
     //  Player Action
     //////////////////////////////////////////////////////////////*/
 
-    function takeAction(Action action) public returns (bytes32 requestId) {
+    function takeAction(Action action) public returns (uint256 requestId) {
         Game storage game = games[msg.sender];
 
         if (game.state != State.READY_FOR_PLAYER_ACTION) {

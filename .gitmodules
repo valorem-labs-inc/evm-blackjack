@@ -7,3 +7,6 @@
 [submodule "lib/chainlink"]
 	path = lib/chainlink
 	url = https://github.com/smartcontractkit/chainlink.git
+[submodule "lib/libddrv"]
+	path = lib/libddrv
+	url = https://github.com/valorem-labs-inc/LibDDRV.git
