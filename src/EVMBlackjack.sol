@@ -65,30 +65,34 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
 
         uint8 raw = card % 13;
 
-        return (raw == 0 || raw >= 10) ? 10 : raw;
+        if (raw == 0) {
+            return 1;
+        }
+        if (raw >= 10) {
+            return 10;
+        } else {
+            return raw + 1;
+        }
     }
 
-    function determineHandOutcome(uint8[] memory playerCards, uint8[] memory dealerCards)
-        public
-        pure
-        returns (Outcome outcome, uint8 playerTotal, uint8 dealerTotal)
-    {
-        uint8 playerTotal = 0;
-        for (uint256 i = 0; i < playerCards.length; i++) {
-            playerTotal += convertCardToValue(playerCards[i]);
+    function determineHandScore(uint8[] memory cards) public pure returns (uint8 score) {
+        uint8 aceCount = 0;
+        for (uint256 i = 0; i < cards.length; i++) {
+            uint8 cardRaw = cards[i];
+            uint8 cardValue = convertCardToValue(cardRaw);
+            if (cardValue == 1) {
+                aceCount++;
+            } else {
+                score += cardValue;
+            }
         }
 
-        uint8 dealerTotal = 0;
-        for (uint256 i = 0; i < dealerCards.length; i++) {
-            dealerTotal += convertCardToValue(dealerCards[i]);
-        }
-
-        if (playerTotal == dealerTotal) {
-            return (Outcome.TIE, playerTotal, dealerTotal);
-        } else if (playerTotal > dealerTotal) {
-            return (Outcome.PLAYER_WIN, playerTotal, dealerTotal);
-        } else {
-            return (Outcome.DEALER_WIN, playerTotal, dealerTotal);
+        for (uint256 i = 0; i < aceCount; i++) {
+            if (score + 11 <= 21) {
+                score += 11;
+            } else {
+                score += 1;
+            }
         }
     }
 
@@ -103,133 +107,113 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
 
     // TODO: only coordinator
     function fulfillRandomness(uint256 _requestId, uint256[] memory _randomWords) public returns (uint256) {
+        // Check the request id is valid.
         address player = randomnessRequests[_requestId];
 
         if (player == address(0)) {
             revert InvalidRandomnessRequest(_requestId);
         }
 
+        // Setup the game state
         bytes32 _randomness = bytes32(_randomWords[0]);
         uint256 seed = _randomWords[0];
         Game storage game = games[player];
+        Forest storage shoe = shoes[player];
 
         if (game.state != State.WAITING_FOR_RANDOMNESS) {
             // We can't fulfill randomness if not waiting for randomness.
             revert InvalidAction();
         }
 
-        // Determine what to do with randomness...
-        if (game.shoeCount == SHOE_STARTING_COUNT * DECK_COUNT) {
-            // seed
-            // pair of aces -- player gets AA (13, 26)
-            // pair         -- player gets 77 (6, 19)
-            // other        -- player gets 54 (4, 16)
-
-            // ace          -- dealer gets A  (0)
-            // other        -- dealer gets 2  (1)
-
-            game.totalPlayerHands++;
-
-            // We are at initial deal state, so
-            // Deal player card 1,
-            if (_randomness == keccak256("pair of aces")) {
-                // TEMP
-                dealPlayerCard(player, 13, 0);
-            } else if (_randomness == keccak256("pair")) {
-                dealPlayerCard(player, 6, 0);
+        if (game.lastAction == Action.NO_ACTION) {
+            // This is the initial deal.
+            // Deal 1 dealer card and 2 player cards
+            dealPlayerCard(player, seed, game, shoe);
+            dealDealerCard(player, seed, game, shoe);
+            dealPlayerCard(player, seed, game, shoe);
+            uint8 playerScore = determineHandScore(game.playerHands[0].cards);
+            if (playerScore == 21) {
+                // player blackjack
+                chip.transferFrom(address(this), player, (3 * game.playerHands[0].betSize) / 2);
+                // TODO(handle push)
+                // reset player hand
+                delete game.playerHands[0];
+                game.state = State.READY_FOR_BET;
             } else {
-                dealPlayerCard(player, 4, 0);
-            }
-
-            // Deal dealer card 1,
-            if (_randomness == keccak256("ace")) {
-                // TEMP
-                dealDealerCard(player, 0);
-                game.state = State.READY_FOR_INSURANCE;
-            } else {
-                dealDealerCard(player, 1);
+                // player turn
                 game.state = State.READY_FOR_PLAYER_ACTION;
             }
-
-            // Deal player card 2,
-            if (_randomness == keccak256("pair of aces")) {
-                // TEMP
-                dealPlayerCard(player, 26, 0);
-            } else if (_randomness == keccak256("pair")) {
-                dealPlayerCard(player, 19, 0);
-            } else {
-                dealPlayerCard(player, 16, 0);
+        } else if (game.lastAction == Action.STAND) {
+            // Dealer's turn
+            // Deal dealer's cards until they hit a soft 17
+            while (determineHandScore(game.dealerCards) < 17) {
+                dealDealerCard(player, seed, game, shoe);
             }
 
-            // Update shoe.
-            game.shoeCount -= 3;
-        } else if (
-            game.lastAction == Action.SPLIT && isAce(game.playerHands[0].cards[0])
-                && isAce(game.playerHands[0].cards[1])
-        ) {
-            // Player's last action was split aces, so we handle and go to Dealer Action.
-            dealPlayerCard(player, 50, 0); // TEMP
-            dealPlayerCard(player, 51, 1);
-
-            game.shoeCount -= 2;
-            game.state = State.DEALER_ACTION;
+            // compare hands, handle payouts
+            uint8 playerScore = determineHandScore(game.playerHands[0].cards);
+            uint8 dealerScore = determineHandScore(game.dealerCards);
+            if (dealerScore > 21 || playerScore > dealerScore) {
+                // player win
+                chip.transferFrom(address(this), player, 2 * game.playerHands[0].betSize);
+            } else if (playerScore == dealerScore) {
+                // tie
+                chip.transferFrom(address(this), player, game.playerHands[0].betSize);
+            } else if (dealerScore == 21) {
+                // check insurance, dealer win otherwise
+                if (game.insurance != 0) {
+                    chip.transferFrom(address(this), player, 2 * game.insurance);
+                }
+            }
+            // else if (dealerScore > playerScore)
+            // dealer win
+            // reset player hand
+            game.state = State.READY_FOR_BET;
+            delete game.playerHands[0];
         } else if (game.lastAction == Action.SPLIT) {
-            // Player's last action was split, so we handle and go to Ready for Player Action.
-            dealPlayerCard(player, 32, 0);
-            dealPlayerCard(player, 33, 1);
-
-            game.shoeCount -= 2;
-            game.state = State.READY_FOR_PLAYER_ACTION;
+            // Deal 2 cards to the previous and the new split hand
+            // TODO(Support splitting)
+            revert InvalidAction();
         } else if (game.lastAction == Action.DOUBLE_DOWN) {
-            // Player's last action was double down, so we handle and go to Dealer Action.
-            if (game.totalPlayerHands == 1) {
-                dealPlayerCard(player, 15, 0);
-
-                game.shoeCount--;
-                game.state = State.DEALER_ACTION;
-            } else if (game.totalPlayerHands == 2 && game.activePlayerHand == 0) {
-                dealPlayerCard(player, 15, 0);
-
-                game.shoeCount--;
-                game.activePlayerHand++;
-                game.state = State.READY_FOR_PLAYER_ACTION;
-            } else if (game.totalPlayerHands == 2 && game.activePlayerHand == 1) {
-                dealPlayerCard(player, 15, 1);
-
-                game.shoeCount--;
-                game.activePlayerHand++;
-                game.state = State.DEALER_ACTION;
-            } else {
-                revert InvalidAction();
-            }
+            // Deal 1 card to the active hand
+            // TODO(What if the player busts?)
+            revert InvalidAction();
         } else if (game.lastAction == Action.HIT) {
-            // Player's last action was hit, so we handle and go to Ready for Player Action.
-            dealPlayerCard(player, 25, 0);
-
-            game.shoeCount--;
-            game.state = State.READY_FOR_PLAYER_ACTION;
-        } else {
-            //
+            // Deal player card
+            dealPlayerCard(player, seed, game, shoe);
+            uint8 playerScore = determineHandScore(game.playerHands[0].cards);
+            if (playerScore > 21) {
+                delete game.playerHands[0];
+                game.state = State.READY_FOR_BET;
+            } else {
+                game.state = State.READY_FOR_PLAYER_ACTION;
+            }
         }
 
         // Cleanup the randomness request after handling.
         delete randomnessRequests[_requestId];
+
+        return 0;
     }
 
-    function dealCard(Forest storage forest, uint256 seed) internal returns (uint8) {
+    function dealPlayerCard(address player, uint256 seed, Game storage game, Forest storage shoe)
+        internal
+        returns (uint8)
+    {
+        uint8 _card = uint8(LibDDRV.generate(shoe, seed));
+        game.playerHands[0].cards.push(_card);
 
+        emit PlayerCardDealt(player, _card, 0);
     }
 
-    function dealPlayerCard(address _player, uint8 _card, uint8 _handIndex) internal {
-        games[_player].playerHands[_handIndex].cards.push(_card);
+    function dealDealerCard(address player, uint256 seed, Game storage game, Forest storage shoe)
+        internal
+        returns (uint8)
+    {
+        uint8 _card = uint8(LibDDRV.generate(shoe, seed));
+        game.dealerCards.push(_card);
 
-        emit PlayerCardDealt(_player, _card, _handIndex);
-    }
-
-    function dealDealerCard(address _player, uint8 _card) internal {
-        games[_player].dealerCards.push(_card);
-
-        emit DealerCardDealt(_player, _card);
+        emit DealerCardDealt(player, _card);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -264,7 +248,7 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
     function initShoe() internal {
         Forest storage shoe = shoes[msg.sender];
         uint256[] memory weights = new uint256[](52);
-        for (uint i = 0; i < 52; i++) {
+        for (uint256 i = 0; i < 52; i++) {
             weights[i] = SHOE_STARTING_COUNT;
         }
         LibDDRV.preprocess(weights, shoe);
@@ -310,61 +294,16 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
 
         // Handle player action.
         if (action == Action.SPLIT) {
-            if (!isPair(game.playerHands[0].cards[0], game.playerHands[0].cards[1])) {
-                revert InvalidAction();
-            }
-
-            // Instantiate new hand.
-            uint256 betSize = game.playerHands[0].betSize;
-            game.totalPlayerHands++;
-            game.playerHands.push(Hand({cards: new uint8[](0), betSize: betSize}));
-
-            // Split hand index 0.
-            uint8 card = games[msg.sender].playerHands[0].cards[1];
-            games[msg.sender].playerHands[0].cards.pop();
-            games[msg.sender].playerHands[1].cards.push(card);
-
-            // Update game state.
-            game.state = State.WAITING_FOR_RANDOMNESS;
-            game.lastAction = Action.SPLIT;
-
-            // Transfer additional CHIP.
-            chip.transferFrom(msg.sender, address(this), betSize);
+            revert InvalidAction();
         } else if (action == Action.DOUBLE_DOWN) {
-            // Increase bet size for hand.
-            uint256 betSize = game.playerHands[0].betSize;
-            game.playerHands[0].betSize *= 2;
-
-            // Update game state.
-            game.state = State.WAITING_FOR_RANDOMNESS;
-            game.lastAction = Action.DOUBLE_DOWN;
-
-            // Transfer additional CHIP.
-            chip.transferFrom(msg.sender, address(this), betSize);
-
-            // QUESTION should we emit an event like BetIncreased ?
+            revert InvalidAction();
         } else if (action == Action.HIT) {
             // Update game state.
             game.state = State.WAITING_FOR_RANDOMNESS;
             game.lastAction = Action.HIT;
         } else if (action == Action.STAND) {
-            if (game.totalPlayerHands == 1) {
-                // Update game state.
-                game.state = State.DEALER_ACTION;
-                game.lastAction = Action.STAND;
-            } else if (game.totalPlayerHands == 2 && game.activePlayerHand == 0) {
-                // Update game state.
-                game.activePlayerHand++;
-                game.state = State.READY_FOR_PLAYER_ACTION;
-                game.lastAction = Action.STAND;
-            } else if (game.totalPlayerHands == 2 && game.activePlayerHand == 1) {
-                // Update game state.
-                game.activePlayerHand++;
-                game.state = State.DEALER_ACTION;
-                game.lastAction = Action.STAND;
-            } else {
-                revert InvalidAction();
-            }
+            game.state = State.WAITING_FOR_RANDOMNESS;
+            game.lastAction = Action.HIT;
         } else {
             revert InvalidAction();
         }
@@ -374,24 +313,4 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
 
         emit PlayerActionTaken(msg.sender, action);
     }
-
-    function isAce(uint8 _card) internal returns (bool) {
-        return _card % 13 == 0;
-    }
-
-    function isPair(uint8 _card1, uint8 _card2) internal returns (bool) {
-        return (_card1 % 13) == (_card2 % 13);
-    }
-
-    /*//////////////////////////////////////////////////////////////
-    //  Dealer Action
-    //////////////////////////////////////////////////////////////*/
-
-    //
-
-    /*//////////////////////////////////////////////////////////////
-    //  Payouts
-    //////////////////////////////////////////////////////////////*/
-
-    //
 }
