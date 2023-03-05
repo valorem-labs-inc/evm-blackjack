@@ -194,10 +194,11 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
             dealPlayerCard(player, seed, game, shoe);
             uint8 playerScore = determineHandScore(game.playerHands[0].cards);
             if (playerScore > 21) {
-                // TODO(bust, dealer wins)
+                delete game.playerHands[0];
                 game.state = State.READY_FOR_BET;
+            } else {
+                game.state = State.READY_FOR_PLAYER_ACTION;
             }
-            game.state = State.READY_FOR_PLAYER_ACTION;
         }
 
         // Cleanup the randomness request after handling.
