@@ -73,6 +73,7 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
         randomnessRequests[requestId] = _player;
     }
 
+    // TODO: only coordinator
     function fulfillRandomness(uint256 _requestId, uint256[] memory _randomWords) public returns (uint256) {
         address player = randomnessRequests[_requestId];
 

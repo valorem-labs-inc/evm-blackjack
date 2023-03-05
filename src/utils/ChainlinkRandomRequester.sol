@@ -49,7 +49,6 @@ contract ChainlinkRandomRequester is VRFConsumerBaseV2, ConfirmedOwner, RandomRe
     function requestRandom(uint16 numWords, function (uint256, uint256[] memory) internal returns (uint256) f)
         internal
         override
-        onlyOwner
         returns (uint256 requestId)
     {
         // Will revert if subscription is not set and funded.
