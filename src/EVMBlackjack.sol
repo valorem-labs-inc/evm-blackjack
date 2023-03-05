@@ -5,6 +5,8 @@ import {IEVMBlackjack} from "../src/IEVMBlackjack.sol";
 import {ChainlinkRandomRequester} from "./utils/ChainlinkRandomRequester.sol";
 import {Chip} from "../src/Chip.sol";
 
+import "libddrv/LibDDRV.sol";
+
 /// @title EVM Blackjack Protocol
 /// @author neodaoist
 /// @author 0xAlcibiades
@@ -23,7 +25,7 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
     mapping(address => Game) internal games;
 
     /// @dev Randomness request id => Player address
-    mapping(bytes32 => address) internal randomnessRequests;
+    mapping(uint256 => address) internal randomnessRequests;
 
     /*//////////////////////////////////////////////////////////////
     //  Private Variables -- Constant
@@ -66,18 +68,20 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
     //  Randomness
     //////////////////////////////////////////////////////////////*/
 
-    function requestRandomness(address _player) public returns (bytes32 requestId) {
-        requestId = bytes32(abi.encode(_player, block.timestamp)); // TEMP
+    function requestRandomness(address _player) public returns (uint256 requestId) {
+        requestId = requestRandom(1, fulfillRandomness);
         randomnessRequests[requestId] = _player;
     }
 
-    function fulfillRandomness(bytes32 _requestId, bytes32 _randomness) public {
+    function fulfillRandomness(uint256 _requestId, uint256[] memory _randomWords) public returns (uint256) {
         address player = randomnessRequests[_requestId];
 
         if (player == address(0)) {
             revert InvalidRandomnessRequest(_requestId);
         }
 
+        bytes32 _randomness = bytes32(_randomWords[0]);
+        uint256 seed = _randomWords[0];
         Game storage game = games[player];
 
         if (game.state != State.WAITING_FOR_RANDOMNESS) {
@@ -199,7 +203,7 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
     //  Place Bet
     //////////////////////////////////////////////////////////////*/
 
-    function placeBet(uint256 _betSize) public returns (bytes32 requestId) {
+    function placeBet(uint256 _betSize) public returns (uint256 requestId) {
         if (_betSize < MINIMUM_BET_SIZE || _betSize > MAXIMUM_BET_SIZE) {
             revert InvalidBetSize(_betSize);
         }
@@ -250,7 +254,7 @@ contract EVMBlackjack is IEVMBlackjack, ChainlinkRandomRequester {
     //  Player Action
     //////////////////////////////////////////////////////////////*/
 
-    function takeAction(Action action) public returns (bytes32 requestId) {
+    function takeAction(Action action) public returns (uint256 requestId) {
         Game storage game = games[msg.sender];
 
         if (game.state != State.READY_FOR_PLAYER_ACTION) {
